@@ -1,0 +1,54 @@
+# --- Environment / secrets ---
+.env
+.env.*
+*.env
+!.env.example
+
+# --- Frontend dependencies / builds ---
+**/node_modules/
+**/dist/
+**/coverage/
+**/.vite/
+
+# --- Java / Maven build outputs ---
+target/
+backend/target/
+*.class
+*.jar
+*.war
+!**/.mvn/wrapper/maven-wrapper.jar
+
+# --- Maven wrapper extracted distribution ---
+.mvn/.gradle-enterprise/
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Test / build reports ---
+backend/**/surefire-reports/
+backend/**/failsafe-reports/
+**/surefire-reports/
+**/failsafe-reports/
+**/site/
+*.log
+logs/
+
+# --- IDE / editor ---
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+nbproject/
+*.swp
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Temporary ---
+tmp/
+*.tmp
