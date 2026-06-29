@@ -1,0 +1,35 @@
+name: barapp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: barapp-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-barapp}
+      POSTGRES_USER: ${DB_USER:-barapp}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-barapp}
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - barapp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${DB_USER:-barapp} -d ${DB_NAME:-barapp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: barapp-frontend:local
+    container_name: barapp-frontend
+    ports:
+      - "${FRONTEND_PORT:-8081}:80"
+    restart: unless-stopped
+
+volumes:
+  barapp_pgdata:
