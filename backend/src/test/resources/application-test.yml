@@ -1,0 +1,9 @@
+# Test profile: provides a valid test-only JWT secret (minimum 256 bits) and
+# CORS configuration so integration tests can start without external env vars.
+# This secret is NOT used in production and carries no real security value.
+app:
+  jwt:
+    secret: test-only-jwt-secret-for-le-barapp-integration-tests-256bits
+    issuer: le-barapp-test
+    expiration-seconds: 3600
+  cors-allowed-origins: http://localhost:5173

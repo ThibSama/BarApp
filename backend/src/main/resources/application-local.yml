@@ -1,0 +1,20 @@
+# Local development profile. Connects to the PostgreSQL instance started via the
+# root docker-compose.yml. All values fall back to the safe local defaults
+# documented in .env.example.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:barapp}
+    username: ${DB_USER:barapp}
+    password: ${DB_PASSWORD:barapp}
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+
+app:
+  jwt:
+    # Development-only JWT secret (≥ 256 bits). DO NOT use in production.
+    # Override via APP_JWT_SECRET when needed.
+    secret: local-dev-only-jwt-secret-for-le-barapp-signing-key
