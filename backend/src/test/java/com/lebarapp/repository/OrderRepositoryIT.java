@@ -1,5 +1,7 @@
 package com.lebarapp.repository;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.AbstractPostgresIntegrationTest;
 import com.lebarapp.dto.CreateOrderItemRequest;
 import com.lebarapp.dto.CreateOrderRequest;
@@ -35,7 +37,7 @@ class OrderRepositoryIT extends AbstractPostgresIntegrationTest {
     void findWithItemsByIdReturnsOrderAndItemsWithoutLazyFailure() {
         OrderResponse created = orderService.createOrder(new CreateOrderRequest(List.of(
                 new CreateOrderItemRequest(1L, CocktailSize.M),
-                new CreateOrderItemRequest(3L, CocktailSize.S))));
+                new CreateOrderItemRequest(3L, CocktailSize.S)), 12, PaymentMethod.CARD_IN_APP));
 
         Optional<CustomerOrder> found = customerOrderRepository.findWithItemsById(created.id());
 

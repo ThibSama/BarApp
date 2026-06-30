@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import AppIcon from '@/components/common/AppIcon.vue';
 
 const props = withDefaults(defineProps<{
@@ -71,6 +71,10 @@ watch(() => props.open, async (isOpen) => {
     if (previousFocus instanceof HTMLElement) previousFocus.focus();
   }
 }, { flush: 'post', immediate: true });
+
+onUnmounted(() => {
+  document.body.style.overflow = previousBodyOverflow;
+});
 </script>
 
 <template>

@@ -1,5 +1,7 @@
 package com.lebarapp.controller;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.dto.OrderResponse;
 import com.lebarapp.enums.OrderStatus;
 import com.lebarapp.exception.CocktailNotFoundException;
@@ -64,16 +66,18 @@ class OrderControllerTest {
     void validOrderReturns201WithLocationAndBody() throws Exception {
         UUID id = UUID.fromString("7fdbd20d-9e3a-4b7a-b807-82765d60432f");
         OrderResponse response = new OrderResponse(id, "ABC234", OrderStatus.ORDERED,
-                new BigDecimal("10.50"), OffsetDateTime.now(ZoneOffset.UTC), null, List.of());
+                new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP, OffsetDateTime.now(ZoneOffset.UTC), null, List.of());
         when(orderService.createOrder(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}]}"))
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":12,\"paymentMethod\":\"CARD_IN_APP\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/orders/" + id))
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.publicCode").value("ABC234"))
-                .andExpect(jsonPath("$.status").value("ORDERED"));
+                .andExpect(jsonPath("$.status").value("ORDERED"))
+                .andExpect(jsonPath("$.tableNumber").value(12))
+                .andExpect(jsonPath("$.paymentMethod").value("CARD_IN_APP"));
     }
 
     @Test
@@ -140,7 +144,7 @@ class OrderControllerTest {
         when(orderService.createOrder(any())).thenThrow(new CocktailNotFoundException(99L));
 
         mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"items\":[{\"cocktailId\":99,\"size\":\"M\"}]}"))
+                        .content("{\"items\":[{\"cocktailId\":99,\"size\":\"M\"}],\"tableNumber\":12,\"paymentMethod\":\"CARD_IN_APP\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("COCKTAIL_NOT_FOUND"))
                 .andExpect(jsonPath("$.path").value("/api/orders"));
@@ -168,7 +172,7 @@ class OrderControllerTest {
         when(orderService.createOrder(any())).thenThrow(new PublicCodeGenerationException());
 
         mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}]}"))
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":12,\"paymentMethod\":\"CARD_IN_APP\"}"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("PUBLIC_CODE_GENERATION_FAILED"));
     }
@@ -179,11 +183,51 @@ class OrderControllerTest {
                 .thenThrow(new RuntimeException("jdbc url=secret password=hunter2"));
 
         mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}]}"))
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":12,\"paymentMethod\":\"CARD_IN_APP\"}"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                 // The internal exception message must never reach the client.
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("hunter2"))));
+    }
+
+    @Test
+    void missingTableNumberReturns400() throws Exception {
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"paymentMethod\":\"CARD_IN_APP\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void tableNumberOutOfRangeReturns400() throws Exception {
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":1000,\"paymentMethod\":\"CARD_IN_APP\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void zeroTableNumberReturns400() throws Exception {
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":0,\"paymentMethod\":\"CARD_IN_APP\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void missingPaymentMethodReturns400() throws Exception {
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":12}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void invalidPaymentMethodEnumReturns400() throws Exception {
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":12,\"paymentMethod\":\"BITCOIN\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
     }
 }

@@ -1,5 +1,7 @@
 package com.lebarapp.service;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.dto.BarOrderSummaryResponse;
 import com.lebarapp.dto.OrderResponse;
 import com.lebarapp.entity.CustomerOrder;
@@ -171,11 +173,11 @@ class BarmakerOrderServiceTest {
 
     private static BarOrderSummaryResponse summary(OrderStatus status) {
         return new BarOrderSummaryResponse(UUID.randomUUID(), "ABC234", status,
-                new BigDecimal("10.50"), now(), null, 1, 0);
+                new BigDecimal("10.50"), 12, now(), null, 1, 0);
     }
 
     private static CustomerOrder orderWithItems(int count) {
-        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("10.50"));
+        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP);
         for (int i = 1; i <= count; i++) {
             order.addItem(new OrderItem(UUID.randomUUID(), order, null, "Mojito",
                     CocktailSize.M, new BigDecimal("10.50"), i));

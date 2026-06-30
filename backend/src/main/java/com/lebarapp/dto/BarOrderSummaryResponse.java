@@ -19,6 +19,7 @@ public record BarOrderSummaryResponse(
         String publicCode,
         OrderStatus status,
         BigDecimal totalAmount,
+        int tableNumber,
         OffsetDateTime createdAt,
         OffsetDateTime completedAt,
         long itemCount,

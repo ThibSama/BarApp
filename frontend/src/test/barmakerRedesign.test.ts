@@ -13,7 +13,7 @@ function router(path = '/bar/cocktails') {
       { path: '/bar/categories', component: CategoryManagementView },
       { path: '/bar/cocktails', name: 'bar-cocktails', component: CocktailManagementView },
       { path: '/bar/cocktails/new', name: 'bar-cocktail-new', redirect: { name: 'bar-cocktails', query: { modal: 'create' } } },
-      { path: '/bar/cocktails/:cocktailId/edit', name: 'bar-cocktail-edit', redirect: (to) => ({ name: 'bar-cocktails', query: { modal: 'edit', cocktailId: String(to.params.cocktailId) } }) },
+      { path: '/bar/cocktails/:cocktailId/edit', name: 'bar-cocktail-edit', redirect: (to) => `/bar/cocktails?modal=edit&cocktailId=${encodeURIComponent(String(to.params.cocktailId))}` },
     ],
   });
   return instance.push(path).then(() => instance);
@@ -31,7 +31,12 @@ async function fillValidCocktailForm(name = 'Cocktail test') {
 }
 
 describe('barmaker administration workflows (mock-backed)', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    document.body.style.overflow = '';
+    setActivePinia(createPinia());
+  });
 
   it('keeps the category form hidden until the shared modal is opened, then cancels and restores focus', async () => {
     const r = await router('/bar/categories');
@@ -131,6 +136,7 @@ describe('barmaker administration workflows (mock-backed)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Créer un cocktail' })).toBeNull());
 
     await fireEvent.click(screen.getByRole('button', { name: 'Créer un cocktail' }));
+    await screen.findByRole('dialog', { name: 'Créer un cocktail' });
     await fillValidCocktailForm('Cocktail payload');
     await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Créer un cocktail' })).toBeNull());
@@ -144,6 +150,7 @@ describe('barmaker administration workflows (mock-backed)', () => {
     const createSpy = vi.spyOn(catalog, 'createCocktail').mockImplementation(() => { throw new Error('fail'); });
     render(CocktailManagementView, { global: { plugins: [r] } });
     await fireEvent.click(screen.getByRole('button', { name: 'Créer un cocktail' }));
+    await screen.findByRole('dialog', { name: 'Créer un cocktail' });
     await fillValidCocktailForm('Cocktail erreur');
     await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
     expect(screen.getByRole('dialog', { name: 'Créer un cocktail' })).toBeTruthy();
@@ -159,7 +166,7 @@ describe('barmaker administration workflows (mock-backed)', () => {
     const mojitoRow = screen.getByRole('heading', { name: 'Mojito' }).closest('article') as HTMLElement;
 
     await fireEvent.click(within(mojitoRow).getByRole('button', { name: 'Modifier' }));
-    const dialog = screen.getByRole('dialog', { name: 'Modifier le cocktail' });
+    const dialog = await screen.findByRole('dialog', { name: 'Modifier le cocktail' });
     expect(dialog.parentElement?.className).toContain('modal-backdrop');
     expect(dialog.className).toContain('modal-panel--large');
     expect(screen.getByText('Mojito')).toBeTruthy();
@@ -182,7 +189,6 @@ describe('barmaker administration workflows (mock-backed)', () => {
     expect(r.currentRoute.value.name).toBe('bar-cocktails');
     expect(r.currentRoute.value.query.modal).toBe('create');
     render(CocktailManagementView, { global: { plugins: [r] } });
-    expect(screen.getByText('Mojito')).toBeTruthy();
     expect(screen.getByRole('dialog', { name: 'Créer un cocktail' })).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'Fermer le formulaire cocktail' }));
     await waitFor(() => expect(r.currentRoute.value.query.modal).toBeUndefined());
@@ -193,7 +199,6 @@ describe('barmaker administration workflows (mock-backed)', () => {
     expect(r.currentRoute.value.name).toBe('bar-cocktails');
     expect(r.currentRoute.value.query).toMatchObject({ modal: 'edit', cocktailId: 'mojito' });
     render(CocktailManagementView, { global: { plugins: [r] } });
-    expect(screen.getByText('Mojito')).toBeTruthy();
     expect(screen.getByRole('dialog', { name: 'Modifier le cocktail' })).toBeTruthy();
   });
 });

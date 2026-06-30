@@ -1,5 +1,7 @@
 package com.lebarapp.controller;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.dto.BarOrderSummaryResponse;
 import com.lebarapp.dto.OrderItemResponse;
 import com.lebarapp.dto.OrderResponse;
@@ -64,7 +66,7 @@ class BarmakerOrderControllerTest {
     void listReturnsSummaryArray() throws Exception {
         BarOrderSummaryResponse summary = new BarOrderSummaryResponse(
                 UUID.randomUUID(), "ABC234", OrderStatus.IN_PROGRESS,
-                new BigDecimal("21.00"), OffsetDateTime.now(ZoneOffset.UTC), null, 2, 1);
+                new BigDecimal("21.00"), 7, OffsetDateTime.now(ZoneOffset.UTC), null, 2, 1);
         when(barmakerOrderService.listOrders(false)).thenReturn(List.of(summary));
 
         mockMvc.perform(get("/api/bar/orders"))
@@ -97,7 +99,7 @@ class BarmakerOrderControllerTest {
     void detailReturnsOrderResponse() throws Exception {
         UUID id = UUID.randomUUID();
         OrderResponse response = new OrderResponse(id, "ABC234", OrderStatus.ORDERED,
-                new BigDecimal("10.50"), OffsetDateTime.now(ZoneOffset.UTC), null,
+                new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP, OffsetDateTime.now(ZoneOffset.UTC), null,
                 List.of(new OrderItemResponse(UUID.randomUUID(), 1, "Mojito", CocktailSize.M,
                         new BigDecimal("10.50"), PreparationStatus.PREPARATION_INGREDIENTS, null)));
         when(barmakerOrderService.getOrder(id)).thenReturn(response);
@@ -130,7 +132,7 @@ class BarmakerOrderControllerTest {
         UUID itemId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         OrderResponse response = new OrderResponse(orderId, "ABC234", OrderStatus.IN_PROGRESS,
-                new BigDecimal("10.50"), OffsetDateTime.now(ZoneOffset.UTC), null,
+                new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP, OffsetDateTime.now(ZoneOffset.UTC), null,
                 List.of(new OrderItemResponse(itemId, 1, "Mojito", CocktailSize.M,
                         new BigDecimal("10.50"), PreparationStatus.ASSEMBLY, null)));
         when(barmakerOrderService.advanceItemToNextStep(itemId)).thenReturn(response);

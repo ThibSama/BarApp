@@ -80,7 +80,12 @@ public class OrderService {
         }
         total = total.setScale(2, RoundingMode.HALF_UP);
 
-        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), generateUniquePublicCode(), total);
+        CustomerOrder order = new CustomerOrder(
+                UUID.randomUUID(),
+                generateUniquePublicCode(),
+                total,
+                request.tableNumber(),
+                request.paymentMethod());
 
         List<OrderItem> items = new ArrayList<>(resolvedLines.size());
         int sequenceNumber = 1;

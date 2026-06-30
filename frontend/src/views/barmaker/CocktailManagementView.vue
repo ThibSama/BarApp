@@ -99,7 +99,7 @@ watch(() => [route.query.modal, route.query.cocktailId], () => { formModalKey.va
         @submitting-change="formSubmitting = $event"
       />
       <template #footer>
-        <button class="button secondary" type="button" :disabled="formSubmitting" @click="closeFormModal">Annuler</button>
+        <button class="button secondary" type="button" :disabled="formSubmitting" @click="closeFormModal()">Annuler</button>
         <button class="button" type="button" :disabled="formSubmitting" @click="cocktailForm?.save()">{{ formSubmitting ? 'Enregistrement…' : 'Enregistrer' }}</button>
       </template>
     </BarmakerFormModal>

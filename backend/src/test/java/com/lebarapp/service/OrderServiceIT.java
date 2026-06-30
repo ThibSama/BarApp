@@ -1,5 +1,7 @@
 package com.lebarapp.service;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.AbstractPostgresIntegrationTest;
 import com.lebarapp.dto.CreateOrderItemRequest;
 import com.lebarapp.dto.CreateOrderRequest;
@@ -181,7 +183,7 @@ class OrderServiceIT extends AbstractPostgresIntegrationTest {
     // --- helpers -----------------------------------------------------------
 
     private static CreateOrderRequest request(CreateOrderItemRequest... items) {
-        return new CreateOrderRequest(List.of(items));
+        return new CreateOrderRequest(List.of(items), 12, PaymentMethod.CARD_IN_APP);
     }
 
     private static CreateOrderItemRequest item(Long cocktailId, CocktailSize size) {

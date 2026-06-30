@@ -1,5 +1,7 @@
 package com.lebarapp.entity;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.enums.CocktailSize;
 import org.junit.jupiter.api.Test;
 
@@ -18,16 +20,16 @@ class OrderEntityIdentityTest {
     @Test
     void customerOrderEqualityIsIdBased() {
         UUID id = UUID.randomUUID();
-        CustomerOrder a = new CustomerOrder(id, "AAA111", new BigDecimal("10.00"));
-        CustomerOrder sameId = new CustomerOrder(id, "BBB222", new BigDecimal("99.00"));
-        CustomerOrder other = new CustomerOrder(UUID.randomUUID(), "CCC333", new BigDecimal("10.00"));
+        CustomerOrder a = new CustomerOrder(id, "AAA111", new BigDecimal("10.00"), 12, PaymentMethod.CARD_IN_APP);
+        CustomerOrder sameId = new CustomerOrder(id, "BBB222", new BigDecimal("99.00"), 12, PaymentMethod.CARD_IN_APP);
+        CustomerOrder other = new CustomerOrder(UUID.randomUUID(), "CCC333", new BigDecimal("10.00"), 12, PaymentMethod.CARD_IN_APP);
 
         assertThat(a).isEqualTo(a);
         assertThat(a).isEqualTo(sameId);
         assertThat(a).hasSameHashCodeAs(sameId);
         assertThat(a).isNotEqualTo(other);
         assertThat(a).isNotEqualTo("not an order");
-        assertThat(new CustomerOrder(null, "X", BigDecimal.ZERO)).isNotEqualTo(a);
+        assertThat(new CustomerOrder(null, "X", BigDecimal.ZERO, 12, PaymentMethod.CARD_IN_APP)).isNotEqualTo(a);
 
         // Accessors not exercised by the mapper happy path.
         assertThat(a.getUpdatedAt()).isNull();
@@ -39,7 +41,7 @@ class OrderEntityIdentityTest {
     @Test
     void orderItemEqualityIsIdBasedAndExposesAssociations() {
         UUID id = UUID.randomUUID();
-        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "AAA111", new BigDecimal("10.50"));
+        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "AAA111", new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP);
         OrderItem a = new OrderItem(id, order, null, "Mojito", CocktailSize.M, new BigDecimal("10.50"), 1);
         OrderItem sameId = new OrderItem(id, order, null, "Other", CocktailSize.S, new BigDecimal("8.50"), 2);
         OrderItem other = new OrderItem(UUID.randomUUID(), order, null, "Mojito", CocktailSize.M,

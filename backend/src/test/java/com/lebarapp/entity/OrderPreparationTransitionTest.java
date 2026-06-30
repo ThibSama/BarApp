@@ -1,5 +1,7 @@
 package com.lebarapp.entity;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.enums.CocktailSize;
 import com.lebarapp.enums.OrderStatus;
 import com.lebarapp.enums.PreparationStatus;
@@ -144,13 +146,13 @@ class OrderPreparationTransitionTest {
     // ---- helpers --------------------------------------------------------
 
     private static OrderItem newItem(int sequence) {
-        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("10.50"));
+        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP);
         return new OrderItem(UUID.randomUUID(), order, null, "Mojito",
                 CocktailSize.M, new BigDecimal("10.50"), sequence);
     }
 
     private static CustomerOrder orderWithItems(int count) {
-        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("10.50"));
+        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP);
         for (int i = 1; i <= count; i++) {
             order.addItem(new OrderItem(UUID.randomUUID(), order, null, "Mojito",
                     CocktailSize.M, new BigDecimal("10.50"), i));

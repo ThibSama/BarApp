@@ -52,7 +52,7 @@ class SecurityIT extends AbstractPostgresIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     private static final String DEMO_USERNAME = "barmaker";
-    private static final String DEMO_PASSWORD = "barapp-demo-2024";
+    private static final String DEMO_PASSWORD = "barmaker-test";
     private static final String ALLOWED_ORIGIN = "http://localhost:5173";
 
     // ----------------------------------------------------------------
@@ -67,6 +67,14 @@ class SecurityIT extends AbstractPostgresIntegrationTest {
         assertThat(response.getBody().accessToken()).isNotBlank();
         assertThat(response.getBody().tokenType()).isEqualTo("Bearer");
         assertThat(response.getBody().expiresIn()).isEqualTo(3600);
+    }
+
+    @Test
+    void previousDemoPasswordIsRejected() {
+        // After V5 the demo password rotated to "barmaker-test"; the old one must fail.
+        ResponseEntity<Map> response = loginRaw(DEMO_USERNAME, "barapp-demo-2024");
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody().get("code")).isEqualTo("INVALID_CREDENTIALS");
     }
 
     @Test
@@ -331,7 +339,7 @@ class SecurityIT extends AbstractPostgresIntegrationTest {
     @Test
     void postOrdersRemainsPublic() {
         HttpHeaders headers = jsonHeaders();
-        String body = "{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}]}";
+        String body = "{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":7,\"paymentMethod\":\"CARD_IN_APP\"}";
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
         ResponseEntity<Map> response = restTemplate.exchange(
                 url("/api/orders"), HttpMethod.POST, entity, Map.class);
@@ -343,7 +351,7 @@ class SecurityIT extends AbstractPostgresIntegrationTest {
     void getOrderByIdRemainsPublic() {
         // Create an order first, then track it without authentication
         HttpHeaders headers = jsonHeaders();
-        String body = "{\"items\":[{\"cocktailId\":1,\"size\":\"S\"}]}";
+        String body = "{\"items\":[{\"cocktailId\":1,\"size\":\"S\"}],\"tableNumber\":7,\"paymentMethod\":\"CARD_IN_APP\"}";
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
         ResponseEntity<Map> createResponse = restTemplate.exchange(
                 url("/api/orders"), HttpMethod.POST, entity, Map.class);

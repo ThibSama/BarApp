@@ -39,13 +39,13 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UU
      */
     @Query("""
             select new com.lebarapp.dto.BarOrderSummaryResponse(
-                o.id, o.publicCode, o.status, o.totalAmount, o.createdAt, o.completedAt,
+                o.id, o.publicCode, o.status, o.totalAmount, o.tableNumber, o.createdAt, o.completedAt,
                 count(i.id),
                 coalesce(sum(case when i.preparationStatus = com.lebarapp.enums.PreparationStatus.COMPLETED then 1L else 0L end), 0L))
             from CustomerOrder o
             left join o.items i
             where o.status in :statuses
-            group by o.id, o.publicCode, o.status, o.totalAmount, o.createdAt, o.completedAt
+            group by o.id, o.publicCode, o.status, o.totalAmount, o.tableNumber, o.createdAt, o.completedAt
             order by o.createdAt asc, o.id asc
             """)
     List<BarOrderSummaryResponse> findActiveSummaries(@Param("statuses") Collection<OrderStatus> statuses);
@@ -57,13 +57,13 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UU
      */
     @Query("""
             select new com.lebarapp.dto.BarOrderSummaryResponse(
-                o.id, o.publicCode, o.status, o.totalAmount, o.createdAt, o.completedAt,
+                o.id, o.publicCode, o.status, o.totalAmount, o.tableNumber, o.createdAt, o.completedAt,
                 count(i.id),
                 coalesce(sum(case when i.preparationStatus = com.lebarapp.enums.PreparationStatus.COMPLETED then 1L else 0L end), 0L))
             from CustomerOrder o
             left join o.items i
             where o.status in :statuses
-            group by o.id, o.publicCode, o.status, o.totalAmount, o.createdAt, o.completedAt
+            group by o.id, o.publicCode, o.status, o.totalAmount, o.tableNumber, o.createdAt, o.completedAt
             order by o.completedAt desc, o.id asc
             """)
     List<BarOrderSummaryResponse> findCompletedSummaries(@Param("statuses") Collection<OrderStatus> statuses);

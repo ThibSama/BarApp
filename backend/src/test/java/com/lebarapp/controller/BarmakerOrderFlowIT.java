@@ -37,7 +37,7 @@ class BarmakerOrderFlowIT extends AbstractPostgresIntegrationTest {
     private TestRestTemplate restTemplate;
 
     private static final String DEMO_USERNAME = "barmaker";
-    private static final String DEMO_PASSWORD = "barapp-demo-2024";
+    private static final String DEMO_PASSWORD = "barmaker-test";
 
     private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_OF_MAPS =
             new ParameterizedTypeReference<>() {
@@ -58,15 +58,20 @@ class BarmakerOrderFlowIT extends AbstractPostgresIntegrationTest {
         // 1. Anonymous client creates an order with two drinks.
         Map<String, Object> created = createOrder("{\"items\":["
                 + "{\"cocktailId\":1,\"size\":\"M\"},"
-                + "{\"cocktailId\":3,\"size\":\"S\"}]}");
+                + "{\"cocktailId\":3,\"size\":\"S\"}],"
+                + "\"tableNumber\":7,\"paymentMethod\":\"CARD_IN_APP\"}");
         String orderId = created.get("id").toString();
+        // The persisted table number and payment method are echoed back on creation.
+        assertThat(((Number) created.get("tableNumber")).intValue()).isEqualTo(7);
+        assertThat(created.get("paymentMethod")).isEqualTo("CARD_IN_APP");
         List<Map<String, Object>> items = itemsOf(created);
         assertThat(items).hasSize(2);
         String firstItemId = items.get(0).get("id").toString();
 
-        // 2. Order appears in the active queue (ORDERED, 0/2 completed).
+        // 2. Order appears in the active queue (ORDERED, 0/2 completed) with table.
         Map<String, Object> queued = findInQueue(token, false, orderId);
         assertThat(queued.get("status")).isEqualTo("ORDERED");
+        assertThat(((Number) queued.get("tableNumber")).intValue()).isEqualTo(7);
         assertThat(((Number) queued.get("itemCount")).intValue()).isEqualTo(2);
         assertThat(((Number) queued.get("completedItemCount")).intValue()).isZero();
 

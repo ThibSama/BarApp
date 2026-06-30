@@ -1,5 +1,7 @@
 package com.lebarapp.security;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.config.JwtConfig;
 import com.lebarapp.config.SecurityConfig;
 import com.lebarapp.config.SecurityProperties;
@@ -70,7 +72,7 @@ class BarmakerOrderRouteSecurityTest {
 
     private OrderResponse stubOrder() {
         return new OrderResponse(ORDER_ID, "ABC234", OrderStatus.IN_PROGRESS,
-                new BigDecimal("10.50"), OffsetDateTime.now(ZoneOffset.UTC), null, List.of());
+                new BigDecimal("10.50"), 12, PaymentMethod.CARD_IN_APP, OffsetDateTime.now(ZoneOffset.UTC), null, List.of());
     }
 
     // ---- 401 (no authentication) ----------------------------------------

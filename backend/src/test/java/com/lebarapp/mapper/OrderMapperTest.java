@@ -1,5 +1,7 @@
 package com.lebarapp.mapper;
 
+import com.lebarapp.enums.PaymentMethod;
+
 import com.lebarapp.dto.OrderItemResponse;
 import com.lebarapp.dto.OrderResponse;
 import com.lebarapp.entity.CustomerOrder;
@@ -22,7 +24,7 @@ class OrderMapperTest {
 
     @Test
     void mapsOrderAndSortsItemsBySequenceNumber() {
-        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("19.00"));
+        CustomerOrder order = new CustomerOrder(UUID.randomUUID(), "ABC234", new BigDecimal("19.00"), 12, PaymentMethod.CARD_IN_APP);
         // Added out of sequence order on purpose.
         order.addItem(new OrderItem(UUID.randomUUID(), order, null, "Piña Colada",
                 CocktailSize.S, new BigDecimal("9.50"), 2));

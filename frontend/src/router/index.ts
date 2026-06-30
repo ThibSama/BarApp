@@ -41,7 +41,7 @@ const router = createRouter({
       { path: 'categories', name: 'bar-categories', component: CategoryManagementView, meta: { requiresAuth: true } },
       { path: 'cocktails', name: 'bar-cocktails', component: CocktailManagementView, meta: { requiresAuth: true } },
       { path: 'cocktails/new', name: 'bar-cocktail-new', redirect: { name: 'bar-cocktails', query: { modal: 'create' } } },
-      { path: 'cocktails/:cocktailId/edit', name: 'bar-cocktail-edit', redirect: (to) => ({ name: 'bar-cocktails', query: { modal: 'edit', cocktailId: String(to.params.cocktailId) } }) },
+      { path: 'cocktails/:cocktailId/edit', name: 'bar-cocktail-edit', redirect: (to) => `/bar/cocktails?modal=edit&cocktailId=${encodeURIComponent(String(to.params.cocktailId))}` },
     ]},
 
     // --- Backward-compatibility redirects from the old /barmaker/... paths ---
