@@ -10,16 +10,18 @@ function isDone(step: PreparationStep): boolean {
 
 <template>
   <ol class="progress-list">
-    <li v-for="step in preparationSteps" :key="step" :class="{ done: isDone(step) }">
+    <li v-for="step in preparationSteps" :key="step" :class="{ done: isDone(step), current: step === currentStep }" :aria-current="step === currentStep ? 'step' : undefined">
       <span aria-hidden="true"></span>{{ preparationStepLabels[step] }}
     </li>
   </ol>
 </template>
 
 <style scoped>
-.progress-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
-li { display: flex; align-items: center; gap: 0.5rem; color: #64748b; }
-span { width: 0.85rem; height: 0.85rem; border-radius: 50%; border: 2px solid #cbd5e1; }
-.done { color: #166534; font-weight: 700; }
-.done span { background: #22c55e; border-color: #22c55e; }
+.progress-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); }
+li { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-secondary); }
+span { width: 0.9rem; height: 0.9rem; border-radius: 50%; border: 2px solid var(--color-border); flex: 0 0 auto; }
+.done { color: var(--color-success); font-weight: 700; }
+.done span { background: var(--color-success); border-color: var(--color-success); }
+.current { color: var(--color-primary); }
+.current span { background: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 0 0 4px rgba(212,175,55,0.16); }
 </style>

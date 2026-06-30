@@ -1,6 +1,7 @@
 package com.lebarapp.entity;
 
 import com.lebarapp.enums.OrderStatus;
+import com.lebarapp.enums.PreparationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -86,6 +87,56 @@ public class CustomerOrder implements Persistable<UUID> {
     /** Adds an item to this order's in-memory aggregate (no cascade persistence). */
     public void addItem(OrderItem item) {
         items.add(item);
+    }
+
+    /**
+     * Recomputes the global order status from the current state of its items,
+     * enforcing the aggregate invariants:
+     * <ul>
+     *   <li>every item {@code COMPLETED} -> the order becomes {@link OrderStatus#COMPLETED};</li>
+     *   <li>at least one item started but not all finished -> {@link OrderStatus#IN_PROGRESS};</li>
+     *   <li>no item started yet -> remains {@link OrderStatus#ORDERED}.</li>
+     * </ul>
+     * A completed order never regresses, and {@code completedAt} is kept
+     * consistent with the status so the database constraint always holds within
+     * the calling transaction.
+     */
+    public void refreshStatus(OffsetDateTime now) {
+        if (items.isEmpty()) {
+            return;
+        }
+        boolean allCompleted = items.stream()
+                .allMatch(item -> item.getPreparationStatus().isCompleted());
+        if (allCompleted) {
+            markCompleted(now);
+            return;
+        }
+        boolean anyStarted = items.stream()
+                .anyMatch(item -> item.getPreparationStatus() != PreparationStatus.PREPARATION_INGREDIENTS);
+        if (anyStarted) {
+            markInProgress();
+        }
+    }
+
+    /**
+     * Moves the order to {@link OrderStatus#IN_PROGRESS} and clears
+     * {@code completedAt} (a non-completed order must have a null completion date).
+     */
+    public void markInProgress() {
+        this.status = OrderStatus.IN_PROGRESS;
+        this.completedAt = null;
+    }
+
+    /**
+     * Moves the order to {@link OrderStatus#COMPLETED} and stamps
+     * {@code completedAt}. The timestamp is only set on the first completion so a
+     * completed order's timestamp is stable.
+     */
+    public void markCompleted(OffsetDateTime now) {
+        this.status = OrderStatus.COMPLETED;
+        if (this.completedAt == null) {
+            this.completedAt = now;
+        }
     }
 
     @Override

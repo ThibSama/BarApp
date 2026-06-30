@@ -38,6 +38,7 @@ logs/
 *.iws
 .vscode/
 .settings/
+.hermes/
 .project
 .classpath
 .factorypath

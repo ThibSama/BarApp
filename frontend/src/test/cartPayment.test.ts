@@ -28,22 +28,25 @@ describe('cart payment flow', () => {
     const cart = useCartStore();
     cart.addItem('mojito', 'M', 1);
     render(CartView, { global: { plugins: [router] } });
-    const button = screen.getByRole('button', { name: 'Confirmer la commande' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Valider la commande' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
-    expect(screen.getByText('Sélectionnez un mode de paiement pour valider la commande.')).toBeTruthy();
+    expect(screen.getByText('Sélectionnez un mode de paiement ci-dessous pour valider la commande.')).toBeTruthy();
   });
 
-  it('allows confirmation after selecting a payment method', async () => {
+  it('prevents duplicate submission after selecting a payment method', async () => {
     const router = createTestRouter();
     const cart = useCartStore();
     const orders = useOrderStore();
+    const initialOrderCount = orders.orders.length;
     cart.addItem('mojito', 'M', 1);
     render(CartView, { global: { plugins: [router] } });
     await fireEvent.click(screen.getByDisplayValue('apple_pay'));
-    const button = screen.getByRole('button', { name: 'Confirmer la commande' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Valider la commande' }) as HTMLButtonElement;
     expect(button.disabled).toBe(false);
     await fireEvent.click(button);
+    await fireEvent.click(button);
     expect(orders.orders[0].paymentMethod).toBe('apple_pay');
+    expect(orders.orders).toHaveLength(initialOrderCount + 1);
     expect(cart.items).toHaveLength(0);
   });
 });

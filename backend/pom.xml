@@ -131,12 +131,13 @@
                 <configuration>
                     <!--
                         @{failsafeArgLine} is injected by JaCoCo prepare-agent-integration.
-                        api.version: the local Docker daemon (Engine 29) requires Docker API >= 1.40,
-                        but the docker-java client bundled with Testcontainers negotiates 1.32 by
-                        default and is rejected. Pinning api.version lets the Testcontainers
-                        integration tests connect. Adjust/remove on environments with an older daemon.
+                        api.version: the local Docker daemon requires a minimum Docker API
+                        version (Engine 29 now rejects anything below 1.44), but the docker-java
+                        client bundled with Testcontainers negotiates an older version by default
+                        and is rejected. Pinning api.version lets the Testcontainers integration
+                        tests connect. Adjust/remove to match the local daemon's minimum.
                     -->
-                    <argLine>@{failsafeArgLine} -Dnet.bytebuddy.experimental=true -Dapi.version=1.43</argLine>
+                    <argLine>@{failsafeArgLine} -Dnet.bytebuddy.experimental=true -Dapi.version=1.44</argLine>
                 </configuration>
                 <executions>
                     <execution>

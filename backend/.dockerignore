@@ -1,0 +1,23 @@
+# Keep the build context minimal and free of generated / sensitive content.
+# NOTE: do not ignore mvnw, .mvn/ or pom.xml — they are required to build.
+
+# Locally generated build output (the image builds its own target/).
+target/
+**/target/
+
+# VCS / IDE / OS noise
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Logs and local env / secrets
+*.log
+.env
+.env.*
+!.env.example
+
+# Documentation is not needed inside the build context
+docs/

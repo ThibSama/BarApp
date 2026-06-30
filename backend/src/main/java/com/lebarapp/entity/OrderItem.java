@@ -2,6 +2,7 @@ package com.lebarapp.entity;
 
 import com.lebarapp.enums.CocktailSize;
 import com.lebarapp.enums.PreparationStatus;
+import com.lebarapp.exception.InvalidPreparationTransitionException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -107,6 +108,24 @@ public class OrderItem implements Persistable<UUID> {
         this.unitPriceSnapshot = unitPriceSnapshot;
         this.sequenceNumber = sequenceNumber;
         this.preparationStatus = PreparationStatus.PREPARATION_INGREDIENTS;
+    }
+
+    /**
+     * Advances this item by exactly one sequential preparation step
+     * (ingredients -> assembly -> dressing -> completed). When the new state is
+     * {@link PreparationStatus#COMPLETED}, {@code completedAt} is stamped with the
+     * supplied timestamp; otherwise it stays {@code null}, keeping the database
+     * {@code ck_order_item_completed_at} constraint satisfied.
+     *
+     * @throws InvalidPreparationTransitionException if the item is already
+     *         completed (no further step is possible).
+     */
+    public void advanceToNextStep(OffsetDateTime now) {
+        if (preparationStatus.isCompleted()) {
+            throw new InvalidPreparationTransitionException();
+        }
+        preparationStatus = preparationStatus.next();
+        completedAt = preparationStatus.isCompleted() ? now : null;
     }
 
     @Override

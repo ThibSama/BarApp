@@ -9,6 +9,9 @@ services:
       POSTGRES_USER: ${DB_USER:-barapp}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-barapp}
     ports:
+      # Host-mapped port for tools running directly on the host (psql, the
+      # backend started outside Docker, etc.). Inside the network the API
+      # always talks to "postgres:5432", never to this host port.
       - "${DB_HOST_PORT:-5433}:5432"
     volumes:
       - barapp_pgdata:/var/lib/postgresql/data
@@ -21,12 +24,52 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # Build-time networking. The build downloads Maven + dependencies; use the
+      # host network so DNS/egress works on hosts where the default build bridge
+      # has no outbound resolver. Affects the build only, never runtime.
+      network: host
+    image: barapp-backend:local
+    container_name: barapp-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Spring profile (kept as the established "local" profile by default).
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      # Database wiring — Compose service name + internal container port, NOT
+      # the host-mapped port. These are fixed to the Compose network on purpose.
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-barapp}
+      DB_USER: ${DB_USER:-barapp}
+      DB_PASSWORD: ${DB_PASSWORD:-barapp}
+      # JWT configuration provided at runtime (nothing is baked into the image).
+      # The default below is a clearly-marked DEV-ONLY secret; override via .env.
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-local-dev-only-jwt-secret-change-me-min-256-bits-0123456789}
+      APP_JWT_ISSUER: ${APP_JWT_ISSUER:-le-barapp}
+      APP_JWT_EXPIRATION_SECONDS: ${APP_JWT_EXPIRATION_SECONDS:-3600}
+      # Exact allowed CORS origins (no wildcard). Defaults to the frontend host.
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:8081}
+    ports:
+      # Direct API access on the host (debugging / automated API validation).
+      - "${API_HOST_PORT:-8080}:8080"
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # Build-time networking (npm install). See the api service note above.
+      network: host
     image: barapp-frontend:local
     container_name: barapp-frontend
+    depends_on:
+      api:
+        condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-8081}:80"
     restart: unless-stopped

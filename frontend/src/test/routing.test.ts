@@ -16,6 +16,6 @@ describe('routing', () => {
     render(App, { global: { plugins: [createPinia(), router] } });
     expect(screen.queryByText("Bienvenue sur Le Bar'app")).toBeNull();
     expect(screen.queryByText('Prototype de démonstration')).toBeNull();
-    expect(await screen.findByRole('heading', { name: 'Carte des cocktails' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Notre carte' })).toBeTruthy();
   });
 });

@@ -12,6 +12,7 @@ Ce dépôt contient le socle backend ainsi qu’un prototype frontend Vue 3 situ
 
 - [Prérequis](#prérequis)
 - [Variables d'environnement](#variables-denvironnement)
+- [Stack Docker complète](#stack-docker-complète)
 - [Démarrer PostgreSQL](#démarrer-postgresql)
 - [Lancer le backend](#lancer-le-backend)
 - [Lancer les tests](#lancer-les-tests)
@@ -43,23 +44,121 @@ fichier d'exemple et adaptez si besoin :
 cp .env.example .env
 ```
 
-| Variable                 | Défaut local | Description                              |
-|--------------------------|--------------|------------------------------------------|
-| `DB_HOST`                | `localhost`  | Hôte PostgreSQL                          |
-| `DB_PORT`                | `5432`       | Port PostgreSQL (hôte)                   |
-| `DB_NAME`                | `barapp`     | Nom de la base                           |
-| `DB_USER`                | `barapp`     | Utilisateur applicatif                   |
-| `DB_PASSWORD`            | `barapp`     | Mot de passe (local uniquement)          |
-| `SERVER_PORT`            | `8080`       | Port HTTP du backend                     |
-| `SPRING_PROFILES_ACTIVE` | `local`      | Profil Spring actif                      |
+| Variable                     | Défaut local             | Description                                                        |
+|------------------------------|--------------------------|--------------------------------------------------------------------|
+| `DB_NAME`                    | `barapp`                 | Nom de la base                                                     |
+| `DB_USER`                    | `barapp`                 | Utilisateur applicatif                                            |
+| `DB_PASSWORD`                | `barapp`                 | Mot de passe (local uniquement)                                  |
+| `DB_HOST_PORT`               | `5433`                   | Port PostgreSQL **mappé sur l'hôte** (outils hôte uniquement)     |
+| `DB_HOST` / `DB_PORT`        | `localhost` / `5433`     | Cible PostgreSQL pour le backend lancé **hors Docker**            |
+| `API_HOST_PORT`              | `8080`                   | Port **hôte** de l'API (`localhost:8080` → conteneur `:8080`)      |
+| `FRONTEND_PORT`              | `8081`                   | Port **hôte** du frontend (`localhost:8081` → Nginx `:80`)        |
+| `SERVER_PORT`                | `8080`                   | Port HTTP du backend lancé hors Docker                            |
+| `SPRING_PROFILES_ACTIVE`     | `local`                  | Profil Spring actif                                              |
+| `APP_JWT_SECRET`             | *(dev-only)*             | Secret HMAC JWT (≥ 256 bits) — à remplacer hors développement     |
+| `APP_JWT_ISSUER`             | `le-barapp`              | Émetteur (`iss`) des jetons                                       |
+| `APP_JWT_EXPIRATION_SECONDS` | `3600`                   | Durée de vie du jeton d'accès (secondes)                          |
+| `APP_CORS_ALLOWED_ORIGINS`   | `http://localhost:8081`  | Origines CORS autorisées (séparées par `,`, pas de wildcard)      |
+
+**Signification des ports** (à ne pas confondre) :
+
+| Port | Où | Rôle |
+|------|----|------|
+| `5432` | interne au réseau Compose | port PostgreSQL utilisé par l'API (`postgres:5432`) |
+| `DB_HOST_PORT` (`5433`) | hôte | accès PostgreSQL pour les outils de l'hôte |
+| `8080` | interne au conteneur API | port d'écoute Spring Boot |
+| `API_HOST_PORT` (`8080`) | hôte | accès direct à l'API (debug / tests) |
+| `FRONTEND_PORT` (`8081`) | hôte | accès au frontend (et à l'API via le proxy `/api`) |
 
 > ⚠️ Les valeurs par défaut sont réservées au développement local. **Ne jamais**
 > les utiliser en production et **ne jamais committer** de fichier `.env`
-> (déjà ignoré dans `.gitignore`).
+> (déjà ignoré dans `.gitignore`). En particulier, `APP_JWT_SECRET` a une valeur
+> de développement explicite : remplacez-la pour tout usage hors local.
+
+---
+
+## Stack Docker complète
+
+L'ensemble du stack (`postgres` + `api` + `frontend`) se lance en **une seule
+commande** depuis la racine du dépôt :
+
+```bash
+cp .env.example .env          # (optionnel) sinon les défauts s'appliquent
+docker compose up -d --build
+```
+
+Chaîne de démarrage orchestrée par les healthchecks :
+
+```text
+postgres (healthy)  ->  api (healthy, après migrations Flyway + validation Hibernate)  ->  frontend
+```
+
+### Services et URLs
+
+| Service    | Conteneur          | URL hôte                  | Rôle                                   |
+|------------|--------------------|---------------------------|----------------------------------------|
+| `postgres` | `barapp-postgres`  | `localhost:5433` (outils) | Base de données                        |
+| `api`      | `barapp-api`       | <http://localhost:8080>   | API Spring Boot (`/api/**`)            |
+| `frontend` | `barapp-frontend`  | <http://localhost:8081>   | Frontend Nginx + **proxy `/api`**      |
+
+L'API est joignable de deux manières :
+
+- **directe** (debug / tests) : `http://localhost:8080/api/menu` ;
+- **via le proxy Nginx du frontend** (même origine, recommandé pour le
+  navigateur) : `http://localhost:8081/api/menu` → transmis à `api:8080`.
+
+### Vérifier la santé et les logs
+
+```bash
+docker compose ps                       # postgres/api healthy, frontend up
+docker compose logs --no-color api      # connexion PostgreSQL, Flyway, démarrage
+```
+
+### Smoke tests
+
+```bash
+curl -i http://localhost:8080/api/menu        # API directe
+curl -i http://localhost:8081/api/menu        # API via le proxy frontend
+curl -i http://localhost:8081/                # page frontend
+```
+
+### Arrêt (sans perte de données)
+
+```bash
+docker compose stop          # arrête les conteneurs, conserve le volume
+docker compose down          # supprime les conteneurs, CONSERVE le volume de données
+```
+
+> 🛑 **Réinitialisation destructive** (supprime aussi les données PostgreSQL) —
+> à n'utiliser qu'en connaissance de cause :
+> ```bash
+> docker compose down -v
+> ```
+
+### Accès depuis un autre appareil (même réseau)
+
+Récupérez l'adresse LAN de la machine hôte :
+
+```bash
+hostname -I
+```
+
+Puis ouvrez `http://<IP_LAN>:8081` depuis l'autre appareil. Le navigateur n'a
+besoin que du frontend : les appels `/api` sont relayés côté serveur vers `api`
+par Nginx (aucun nom interne Docker n'est exposé au navigateur). Pensez à ajouter
+l'origine LAN à `APP_CORS_ALLOWED_ORIGINS` si vous appelez l'API en direct depuis
+ce navigateur.
+
+> ⚠️ **Le routage Docker est prêt, mais les écrans Vue utilisent encore des
+> données mockées** jusqu'à la prochaine passe d'intégration ; le frontend ne
+> consomme pas encore réellement l'API.
 
 ---
 
 ## Démarrer PostgreSQL
+
+> Pour le développement **backend hors Docker** uniquement. Le stack complet
+> ci-dessus démarre déjà PostgreSQL.
 
 PostgreSQL est fourni via `docker-compose.yml` (service `postgres` uniquement,
 image `postgres:16-alpine`, volume nommé, healthcheck) :
@@ -72,11 +171,12 @@ docker compose up -d postgres
 docker compose ps
 ```
 
-> Si le port `5432` est déjà occupé sur votre machine, lancez sur un autre port :
+> Le port PostgreSQL exposé sur l'hôte est `DB_HOST_PORT` (défaut `5433`). Pour
+> en changer :
 > ```bash
-> DB_PORT=5433 docker compose up -d postgres
+> DB_HOST_PORT=5544 docker compose up -d postgres
 > ```
-> et démarrez le backend avec la même variable (`DB_PORT=5433`).
+> et démarrez le backend hors Docker avec `DB_PORT=5544`.
 
 Arrêt :
 
@@ -123,11 +223,13 @@ unitaires et d'intégration et génère le rapport dans
 `backend/target/site/jacoco/index.html` (CSV/XML à côté). Seule la classe de
 démarrage `BarAppApplication` est exclue (lanceur trivial).
 
-> **Note environnement** : le démon Docker local (Engine 29) impose l'API
-> Docker ≥ 1.40, alors que le client `docker-java` embarqué par Testcontainers
-> négocie 1.32 par défaut. Le `pom.xml` fixe donc `-Dapi.version=1.43` pour les
-> tests d'intégration (plugin Failsafe). Ajustez/retirez cette valeur sur un
-> environnement doté d'un démon plus ancien.
+> **Note environnement** : le démon Docker local (Engine 29) impose une version
+> minimale d'API Docker (≥ **1.44**), alors que le client `docker-java` embarqué
+> par Testcontainers négocie une version plus ancienne par défaut. Le `pom.xml`
+> fixe donc `-Dapi.version=1.44` pour les tests d'intégration (plugin Failsafe).
+> Ajustez cette valeur selon la version minimale imposée par votre démon local.
+> Les tests d'intégration utilisent un **conteneur PostgreSQL singleton** partagé
+> (voir `backend/docs/testing.md`).
 
 ---
 
