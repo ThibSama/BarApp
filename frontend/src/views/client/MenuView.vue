@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import CocktailCard from '@/components/client/CocktailCard.vue';
 import AppIcon from '@/components/common/AppIcon.vue';
-import { useCatalogStore } from '@/stores/catalog';
+import SuccessToast from '@/components/common/SuccessToast.vue';
+import { useSuccessToast } from '@/composables/useSuccessToast';
+import { useMenuStore, type MenuCocktailView } from '@/stores/menu';
 import { useCartStore } from '@/stores/cart';
-import type { Cocktail, Size } from '@/types/domain';
+import type { ApiSize } from '@/types/api';
+import { priceForSize } from '@/utils/menu';
 
-const catalog = useCatalogStore();
+const menu = useMenuStore();
 const cart = useCartStore();
-const selectedCategory = ref('all');
 const search = ref('');
-const feedback = ref('');
-const hasLoaded = computed(() => catalog.cocktails.length > 0 || catalog.categories.length > 0);
+const { toastMessage, toastVisible, toastId, showSuccessToast } = useSuccessToast();
+
+onMounted(() => menu.load({ initial: true }));
 
 function displayCategoryName(name: string): string {
   const normalized = name.toLocaleLowerCase('fr-FR');
@@ -20,22 +23,24 @@ function displayCategoryName(name: string): string {
   return name;
 }
 
-const filteredCocktails = computed(() => catalog.enabledCocktails.filter((cocktail) => {
-  const category = catalog.getCategoryById(cocktail.categoryId);
-  const matchesCategory = selectedCategory.value === 'all' || cocktail.categoryId === selectedCategory.value;
-  const term = search.value.trim().toLocaleLowerCase('fr-FR');
-  const haystack = [cocktail.name, cocktail.shortDescription, cocktail.ingredients.join(' ')].join(' ').toLocaleLowerCase('fr-FR');
-  const matchesSearch = !term || haystack.includes(term);
-  return matchesCategory && matchesSearch && category?.enabled;
-}));
+const filteredCocktails = computed(() =>
+  menu.cocktails.filter((cocktail) => {
+    const matchesCategory =
+      menu.selectedCategoryId === 'all' || cocktail.categoryId === menu.selectedCategoryId;
+    const term = search.value.trim().toLocaleLowerCase('fr-FR');
+    const haystack = [cocktail.name, cocktail.description, cocktail.ingredients.map((i) => i.name).join(' ')]
+      .join(' ')
+      .toLocaleLowerCase('fr-FR');
+    const matchesSearch = !term || haystack.includes(term);
+    return matchesCategory && matchesSearch;
+  }),
+);
 
-function addSelectedSize(cocktail: Cocktail, size: Size): void {
-  if (!cocktail.available) {
-    feedback.value = 'Impossible d’ajouter ce cocktail. Veuillez réessayer.';
-    return;
-  }
-  cart.addItem(cocktail.id, size, 1);
-  feedback.value = `${cocktail.name} taille ${size} a été ajouté au panier.`;
+function addSelectedSize(cocktail: MenuCocktailView, size: ApiSize): void {
+  const unitPrice = priceForSize(cocktail.prices, size);
+  if (unitPrice === undefined) return;
+  cart.addItem({ cocktailId: cocktail.id, name: cocktail.name, size, unitPrice, imageUrl: cocktail.imageUrl }, 1);
+  showSuccessToast(`${cocktail.name} taille ${size} a été ajouté au panier.`);
 }
 </script>
 
@@ -50,32 +55,45 @@ function addSelectedSize(cocktail: Cocktail, size: Size): void {
       <RouterLink class="basket-button" to="/client/panier"><span aria-hidden="true"><AppIcon name="clipboard-list" :size="20" /></span> Panier <span class="basket-count">{{ cart.itemCount }}</span></RouterLink>
     </div>
 
-    <section class="surface-panel menu-controls" aria-label="Recherche et catégories">
-      <form class="filters" role="search" @submit.prevent>
-        <label class="search-field">
-          <span class="visually-hidden">Rechercher</span>
-          <span class="search-input-wrap">
-            <span aria-hidden="true"><AppIcon name="search" :size="22" /></span>
-            <input v-model="search" type="search" placeholder="Rechercher un cocktail ou un ingrédient…" autocomplete="off" />
-            <button v-if="search" class="clear-search" type="button" aria-label="Effacer la recherche" @click="search = ''"><AppIcon name="x" :size="18" /></button>
-          </span>
-        </label>
-      </form>
+    <!-- Initial loading: no menu data yet. -->
+    <p v-if="menu.loading && !menu.loaded" class="alert warning" role="status">Chargement de la carte…</p>
 
-      <div class="category-pills" aria-label="Catégories">
-        <button type="button" :class="{ active: selectedCategory === 'all' }" :aria-pressed="selectedCategory === 'all'" @click="selectedCategory = 'all'">Tous</button>
-        <button v-for="category in catalog.enabledCategories" :key="category.id" type="button" :class="{ active: selectedCategory === category.id }" :aria-pressed="selectedCategory === category.id" @click="selectedCategory = category.id">{{ displayCategoryName(category.name) }}</button>
-      </div>
+    <!-- Hard error with no data to show: offer a retry, never fake data. -->
+    <section v-else-if="menu.error && !menu.cocktails.length" class="card empty-state">
+      <h2>Carte indisponible</h2>
+      <p>{{ menu.error }}</p>
+      <button class="button" type="button" @click="menu.retry()">Réessayer</button>
     </section>
 
-    <p class="visually-hidden" aria-live="polite">{{ feedback }}</p>
-    <p v-if="feedback" class="alert success" role="status">{{ feedback }}</p>
-    <p v-if="!hasLoaded" class="alert warning" role="status">Chargement de la carte…</p>
+    <template v-else>
+      <!-- Transient refresh failure: keep the last menu, warn softly. -->
+      <p v-if="menu.error" class="alert warning" role="status">{{ menu.error }}</p>
 
-    <div v-if="filteredCocktails.length" class="card-grid">
-      <CocktailCard v-for="cocktail in filteredCocktails" :key="cocktail.id" :cocktail="cocktail" :category-name="displayCategoryName(catalog.getCategoryById(cocktail.categoryId)?.name ?? 'Catégorie')" @add="addSelectedSize" />
-    </div>
-    <section v-else-if="hasLoaded" class="card empty-state"><h2>Aucun cocktail trouvé</h2><p>Essayez un autre ingrédient ou une autre catégorie.</p><button v-if="search || selectedCategory !== 'all'" class="button secondary" type="button" @click="search = ''; selectedCategory = 'all'">Réinitialiser les filtres</button></section>
+      <section class="surface-panel menu-controls" aria-label="Recherche et catégories">
+        <form class="filters" role="search" @submit.prevent>
+          <label class="search-field">
+            <span class="visually-hidden">Rechercher</span>
+            <span class="search-input-wrap">
+              <span aria-hidden="true"><AppIcon name="search" :size="22" /></span>
+              <input v-model="search" type="search" placeholder="Rechercher un cocktail ou un ingrédient…" autocomplete="off" />
+              <button v-if="search" class="clear-search" type="button" aria-label="Effacer la recherche" @click="search = ''"><AppIcon name="x" :size="18" /></button>
+            </span>
+          </label>
+        </form>
+
+        <div class="category-pills" aria-label="Catégories">
+          <button type="button" :class="{ active: menu.selectedCategoryId === 'all' }" :aria-pressed="menu.selectedCategoryId === 'all'" @click="menu.selectedCategoryId = 'all'">Tous</button>
+          <button v-for="category in menu.categories" :key="category.id" type="button" :class="{ active: menu.selectedCategoryId === category.id }" :aria-pressed="menu.selectedCategoryId === category.id" @click="menu.selectedCategoryId = category.id">{{ displayCategoryName(category.name) }}</button>
+        </div>
+      </section>
+
+      <SuccessToast :message="toastMessage" :visible="toastVisible" :toast-key="toastId" />
+
+      <div v-if="filteredCocktails.length" class="card-grid">
+        <CocktailCard v-for="cocktail in filteredCocktails" :key="cocktail.id" :cocktail="cocktail" :category-name="displayCategoryName(cocktail.categoryName)" @add="addSelectedSize" />
+      </div>
+      <section v-else class="card empty-state"><h2>Aucun cocktail trouvé</h2><p>Essayez un autre ingrédient ou une autre catégorie.</p><button v-if="search || menu.selectedCategoryId !== 'all'" class="button secondary" type="button" @click="search = ''; menu.selectedCategoryId = 'all'">Réinitialiser les filtres</button></section>
+    </template>
   </section>
 </template>
 

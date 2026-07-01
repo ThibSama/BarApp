@@ -31,6 +31,7 @@ const summary: BarOrderSummary = {
   publicCode: 'ABC234',
   status: 'IN_PROGRESS',
   totalAmount: 20,
+  tableNumber: 7,
   createdAt: '2026-06-30T10:00:00Z',
   completedAt: null,
   itemCount: 2,
@@ -42,6 +43,8 @@ const twoItemDetail: BarOrderDetail = {
   publicCode: 'ABC234',
   status: 'ORDERED',
   totalAmount: 20,
+  tableNumber: 7,
+  paymentMethod: 'CARD_AT_COUNTER',
   createdAt: '2026-06-30T10:00:00Z',
   completedAt: null,
   items: [

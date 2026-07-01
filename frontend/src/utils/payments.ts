@@ -1,7 +1,10 @@
-import type { PaymentMethod } from '@/types/domain';
+// Payment-method presentation. The IDs are the real backend `PaymentMethod`
+// enum names sent verbatim in the order request; only the labels are French
+// display text. No real provider, no card/bank data is ever collected.
+import type { ApiPaymentMethod } from '@/types/api';
 
 export interface PaymentMethodOption {
-  id: PaymentMethod;
+  id: ApiPaymentMethod;
   label: string;
   group: 'counter' | 'application';
   icon: string;
@@ -12,28 +15,33 @@ export const paymentGroupLabels: Record<PaymentMethodOption['group'], string> = 
   application: 'Paiement dans l’application',
 };
 
-export const paymentMethodLabels: Record<PaymentMethod, string> = {
-  cash_at_counter: 'Espèces au comptoir',
-  card_at_counter: 'Carte bancaire au comptoir',
-  card_in_app: 'Carte bancaire dans l’application',
-  apple_pay: 'Apple Pay',
-  google_pay: 'Google Pay',
+export const paymentMethodLabels: Record<ApiPaymentMethod, string> = {
+  CASH_AT_COUNTER: 'Espèces au comptoir',
+  CARD_AT_COUNTER: 'Carte bancaire au comptoir',
+  CARD_IN_APP: 'Carte bancaire dans l’application',
+  APPLE_PAY: 'Apple Pay',
+  GOOGLE_PAY: 'Google Pay',
 };
 
 export const paymentMethodOptions: PaymentMethodOption[] = [
-  { id: 'cash_at_counter', label: paymentMethodLabels.cash_at_counter, group: 'counter', icon: '💶' },
-  { id: 'card_at_counter', label: paymentMethodLabels.card_at_counter, group: 'counter', icon: '💳' },
-  { id: 'card_in_app', label: paymentMethodLabels.card_in_app, group: 'application', icon: '💳' },
-  { id: 'apple_pay', label: paymentMethodLabels.apple_pay, group: 'application', icon: 'Pay' },
-  { id: 'google_pay', label: paymentMethodLabels.google_pay, group: 'application', icon: 'G Pay' },
+  { id: 'CASH_AT_COUNTER', label: paymentMethodLabels.CASH_AT_COUNTER, group: 'counter', icon: '💶' },
+  { id: 'CARD_AT_COUNTER', label: paymentMethodLabels.CARD_AT_COUNTER, group: 'counter', icon: '💳' },
+  { id: 'CARD_IN_APP', label: paymentMethodLabels.CARD_IN_APP, group: 'application', icon: '💳' },
+  { id: 'APPLE_PAY', label: paymentMethodLabels.APPLE_PAY, group: 'application', icon: 'Pay' },
+  { id: 'GOOGLE_PAY', label: paymentMethodLabels.GOOGLE_PAY, group: 'application', icon: 'G Pay' },
 ];
 
-export function getPaymentMethodLabel(method: PaymentMethod): string {
+/** Whether a payment method is a counter (in-person) settlement. */
+export function isCounterPayment(method: ApiPaymentMethod): boolean {
+  return method === 'CASH_AT_COUNTER' || method === 'CARD_AT_COUNTER';
+}
+
+export function getPaymentMethodLabel(method: ApiPaymentMethod): string {
   return paymentMethodLabels[method];
 }
 
-export function getPaymentSimulationMessage(method: PaymentMethod): string {
-  return method === 'cash_at_counter' || method === 'card_at_counter'
+export function getPaymentSimulationMessage(method: ApiPaymentMethod): string {
+  return isCounterPayment(method)
     ? 'Le règlement sera effectué au comptoir.'
     : 'Paiement simulé avec succès.';
 }

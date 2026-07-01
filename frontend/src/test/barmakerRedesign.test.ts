@@ -4,7 +4,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRouter, createWebHistory } from 'vue-router';
 import CategoryManagementView from '@/views/barmaker/CategoryManagementView.vue';
 import CocktailManagementView from '@/views/barmaker/CocktailManagementView.vue';
-import { useCatalogStore } from '@/stores/catalog';
+import { ApiError } from '@/services/apiClient';
+import { categoryResponses, cocktailResponse, cocktailResponses, ingredientResponses } from './fixtures/catalog';
+
+vi.mock('@/services/catalogAdminApi', () => ({
+  fetchCategories: vi.fn(),
+  createCategory: vi.fn(),
+  updateCategory: vi.fn(),
+  deleteCategory: vi.fn(),
+  fetchCocktails: vi.fn(),
+  fetchCocktail: vi.fn(),
+  createCocktail: vi.fn(),
+  updateCocktail: vi.fn(),
+  deleteCocktail: vi.fn(),
+  fetchIngredients: vi.fn(),
+}));
+import * as adminApi from '@/services/catalogAdminApi';
 
 function router(path = '/bar/cocktails') {
   const instance = createRouter({
@@ -21,184 +36,156 @@ function router(path = '/bar/cocktails') {
 
 async function fillValidCocktailForm(name = 'Cocktail test') {
   await fireEvent.update(screen.getByLabelText(/^Nom/), name);
-  await fireEvent.update(screen.getByLabelText(/^Description courte/), 'Court');
   await fireEvent.update(screen.getByLabelText(/^Description complète/), 'Longue description');
-  await fireEvent.update(screen.getByLabelText(/^URL de l’image/), 'https://example.com/test.png');
   await fireEvent.update(screen.getByLabelText('Ingrédient 1'), 'Citron');
   await fireEvent.update(screen.getByLabelText(/^Prix S/), '6');
   await fireEvent.update(screen.getByLabelText(/^Prix M/), '8');
   await fireEvent.update(screen.getByLabelText(/^Prix L/), '10');
 }
 
-describe('barmaker administration workflows (mock-backed)', () => {
+describe('barmaker catalogue administration (real admin API)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
     document.body.style.overflow = '';
     setActivePinia(createPinia());
+    vi.mocked(adminApi.fetchCategories).mockReset().mockResolvedValue(categoryResponses());
+    vi.mocked(adminApi.createCategory).mockReset();
+    vi.mocked(adminApi.updateCategory).mockReset();
+    vi.mocked(adminApi.deleteCategory).mockReset().mockResolvedValue(undefined);
+    vi.mocked(adminApi.fetchCocktails).mockReset().mockResolvedValue(cocktailResponses());
+    vi.mocked(adminApi.fetchCocktail).mockReset().mockResolvedValue(cocktailResponse());
+    vi.mocked(adminApi.createCocktail).mockReset();
+    vi.mocked(adminApi.updateCocktail).mockReset();
+    vi.mocked(adminApi.deleteCocktail).mockReset().mockResolvedValue(undefined);
+    vi.mocked(adminApi.fetchIngredients).mockReset().mockResolvedValue(ingredientResponses());
   });
 
-  it('keeps the category form hidden until the shared modal is opened, then cancels and restores focus', async () => {
+  it('lists active and inactive categories from the API', async () => {
     const r = await router('/bar/categories');
     render(CategoryManagementView, { global: { plugins: [r] } });
-    const trigger = screen.getByRole('button', { name: 'Créer une catégorie' });
-    expect(screen.queryByRole('dialog', { name: 'Créer une catégorie' })).toBeNull();
-
-    trigger.focus();
-    await fireEvent.click(trigger);
-    const dialog = screen.getByRole('dialog', { name: 'Créer une catégorie' });
-    expect(dialog.parentElement?.className).toContain('modal-backdrop');
-    expect(dialog.className).toContain('modal-panel--compact');
-    expect(dialog.querySelector('.modal-handle')).toBeTruthy();
-    expect(document.body.style.overflow).toBe('hidden');
-    expect(dialog.querySelector('.modal-body')).toBeTruthy();
-    expect(within(dialog).getByLabelText(/Nom/)).toBe(document.activeElement);
-
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Annuler' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Créer une catégorie' })).toBeNull());
-    expect(document.activeElement).toBe(trigger);
+    expect(await screen.findByText('Classiques')).toBeTruthy();
+    expect(screen.getByText('Sans alcool')).toBeTruthy();
+    expect(screen.getByText('Désactivée')).toBeTruthy();
   });
 
-  it('validates, creates, edits, toggles and confirms deletion of a category in modals', async () => {
+  it('creates a category through the modal and shows a success toast', async () => {
+    vi.mocked(adminApi.createCategory).mockResolvedValue({ id: 9, name: 'Tests', description: null, displayOrder: 4, active: true });
     const r = await router('/bar/categories');
-    const catalog = useCatalogStore();
     render(CategoryManagementView, { global: { plugins: [r] } });
+    await screen.findByText('Classiques');
+
     await fireEvent.click(screen.getByRole('button', { name: 'Créer une catégorie' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Créer la catégorie' }));
     expect(screen.getByText('Nom est obligatoire.')).toBeTruthy();
 
-    await fireEvent.update(screen.getByLabelText(/Nom/), 'Tests visuels');
-    await fireEvent.update(screen.getByLabelText(/Description/), 'Catégorie temporaire');
+    await fireEvent.update(screen.getByLabelText(/Nom/), 'Tests');
     await fireEvent.click(screen.getByRole('button', { name: 'Créer la catégorie' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Créer une catégorie' })).toBeNull());
-    const created = catalog.categories.find((category) => category.name === 'Tests visuels')!;
-    expect(created).toBeTruthy();
-
-    const card = screen.getByText('Tests visuels').closest('article')!;
-    await fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Modifier' }));
-    await fireEvent.update(screen.getByLabelText(/Nom/), 'Tests visuels modifiés');
-    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer les modifications' }));
-    expect(catalog.getCategoryById(created.id)?.name).toBe('Tests visuels modifiés');
-    await fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Désactiver' }));
-    expect(catalog.getCategoryById(created.id)?.enabled).toBe(false);
-    await fireEvent.click(screen.getByRole('button', { name: /Supprimer Tests visuels/ }));
-    expect(screen.getByRole('dialog')).toBeTruthy();
-    await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Annuler' }));
-    expect(catalog.getCategoryById(created.id)).toBeTruthy();
+    await waitFor(() => expect(adminApi.createCategory).toHaveBeenCalled());
+    expect(adminApi.createCategory).toHaveBeenCalledWith(expect.objectContaining({ name: 'Tests', active: true }));
+    expect(await screen.findByText('Catégorie créée')).toBeTruthy();
   });
 
-  it('keeps the category modal open when persistence fails', async () => {
+  it('keeps the modal open and flags the name on a 409 conflict', async () => {
+    vi.mocked(adminApi.createCategory).mockRejectedValue(new ApiError({ message: 'x', status: 409, code: 'CATEGORY_ALREADY_EXISTS' }));
     const r = await router('/bar/categories');
-    const catalog = useCatalogStore();
-    const createSpy = vi.spyOn(catalog, 'createCategory').mockImplementation(() => { throw new Error('fail'); });
     render(CategoryManagementView, { global: { plugins: [r] } });
+    await screen.findByText('Classiques');
     await fireEvent.click(screen.getByRole('button', { name: 'Créer une catégorie' }));
-    await fireEvent.update(screen.getByLabelText(/Nom/), 'Erreur catégorie');
-    await fireEvent.update(screen.getByLabelText(/Description/), 'Doit rester ouvert');
+    await fireEvent.update(screen.getByLabelText(/Nom/), 'Classiques');
     await fireEvent.click(screen.getByRole('button', { name: 'Créer la catégorie' }));
+    await waitFor(() => expect(screen.getByText('Une catégorie portant ce nom existe déjà.')).toBeTruthy());
     expect(screen.getByRole('dialog', { name: 'Créer une catégorie' })).toBeTruthy();
-    expect(screen.getByRole('alert').textContent).toContain('Impossible d’enregistrer cette catégorie');
-    createSpy.mockRestore();
   });
 
-  it('opens cocktail creation in a modal from the list, manages fields, validates, cancels and creates with the existing payload', async () => {
-    const r = await router('/bar/cocktails');
-    const catalog = useCatalogStore();
-    const createSpy = vi.spyOn(catalog, 'createCocktail');
-    render(CocktailManagementView, { global: { plugins: [r] } });
+  it('deactivates a category via DELETE after confirmation', async () => {
+    vi.mocked(adminApi.fetchCategories)
+      .mockResolvedValueOnce(categoryResponses())
+      .mockResolvedValue(categoryResponses().map((c) => (c.id === 1 ? { ...c, active: false } : c)));
+    const r = await router('/bar/categories');
+    render(CategoryManagementView, { global: { plugins: [r] } });
+    const card = (await screen.findByText('Classiques')).closest('article') as HTMLElement;
+    await fireEvent.click(within(card).getByRole('button', { name: /Désactiver/ }));
+    await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Désactiver' }));
+    await waitFor(() => expect(adminApi.deleteCategory).toHaveBeenCalledWith(1));
+    expect(await screen.findByText('Catégorie désactivée')).toBeTruthy();
+  });
 
-    expect(screen.queryByRole('dialog', { name: 'Créer un cocktail' })).toBeNull();
-    expect(screen.getByText('Mojito')).toBeTruthy();
+  it('reactivates an inactive category via PUT active=true', async () => {
+    vi.mocked(adminApi.updateCategory).mockResolvedValue({ ...categoryResponses()[2], active: true });
+    const r = await router('/bar/categories');
+    render(CategoryManagementView, { global: { plugins: [r] } });
+    const card = (await screen.findByText('Sans alcool')).closest('article') as HTMLElement;
+    await fireEvent.click(within(card).getByRole('button', { name: /Activer/ }));
+    await waitFor(() => expect(adminApi.updateCategory).toHaveBeenCalledWith(3, expect.objectContaining({ active: true })));
+    expect(await screen.findByText('Catégorie réactivée')).toBeTruthy();
+  });
+
+  it('lists cocktails and opens the creation modal, validating then sending the exact payload', async () => {
+    vi.mocked(adminApi.createCocktail).mockResolvedValue(cocktailResponse({ id: 200, name: 'Cocktail test' }));
+    const r = await router('/bar/cocktails');
+    render(CocktailManagementView, { global: { plugins: [r] } });
+    expect(await screen.findByText('Mojito')).toBeTruthy();
+
     await fireEvent.click(screen.getByRole('button', { name: 'Créer un cocktail' }));
     const dialog = await screen.findByRole('dialog', { name: 'Créer un cocktail' });
-    expect(dialog.parentElement?.className).toContain('modal-backdrop');
     expect(dialog.className).toContain('modal-panel--large');
-    expect(dialog.querySelector('.modal-handle')).toBeTruthy();
-    expect(document.body.style.overflow).toBe('hidden');
-    const modalBody = dialog.querySelector('.modal-body') as HTMLElement | null;
-    expect(modalBody).toBeTruthy();
-    expect(modalBody?.style.overflowY).not.toBe('visible');
-    expect(within(dialog).getByRole('heading', { name: 'Informations générales' })).toBeTruthy();
-    expect(within(dialog).getByRole('heading', { name: 'Image' })).toBeTruthy();
-    expect(within(dialog).getByRole('heading', { name: 'Ingrédients' })).toBeTruthy();
-    expect(within(dialog).getByRole('heading', { name: 'Tailles et prix' })).toBeTruthy();
-    expect(within(dialog).getByRole('heading', { name: 'Disponibilité' })).toBeTruthy();
-
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
-    expect(within(dialog).getByText('Nom est obligatoire.')).toBeTruthy();
-    await fillValidCocktailForm();
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter un ingrédient' }));
-    expect(within(dialog).getByLabelText('Ingrédient 2')).toBeTruthy();
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Retirer l’ingrédient 2' }));
-    expect(within(dialog).queryByLabelText('Ingrédient 2')).toBeNull();
-    await fireEvent.click(within(dialog).getByLabelText('Cocktail disponible'));
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Annuler' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Créer un cocktail' })).toBeNull());
+    expect(within(dialog).getByText('Le nom est obligatoire.')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Créer un cocktail' }));
-    await screen.findByRole('dialog', { name: 'Créer un cocktail' });
     await fillValidCocktailForm('Cocktail payload');
-    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Créer un cocktail' })).toBeNull());
-    expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ name: 'Cocktail payload', ingredients: ['Citron'], prices: { S: 6, M: 8, L: 10 } }));
-    expect(catalog.cocktails.some((cocktail) => cocktail.name === 'Cocktail payload')).toBe(true);
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(adminApi.createCocktail).toHaveBeenCalled());
+    expect(adminApi.createCocktail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryId: 1,
+        name: 'Cocktail payload',
+        ingredients: [{ name: 'Citron', quantityLabel: null, displayOrder: 0 }],
+        prices: [
+          { size: 'S', price: 6 },
+          { size: 'M', price: 8 },
+          { size: 'L', price: 10 },
+        ],
+      }),
+    );
+    expect(await screen.findByText('Cocktail créé')).toBeTruthy();
   });
 
-  it('keeps the cocktail modal open when persistence fails', async () => {
+  it('rejects duplicate ingredient names in the cocktail form', async () => {
     const r = await router('/bar/cocktails');
-    const catalog = useCatalogStore();
-    const createSpy = vi.spyOn(catalog, 'createCocktail').mockImplementation(() => { throw new Error('fail'); });
     render(CocktailManagementView, { global: { plugins: [r] } });
+    await screen.findByText('Mojito');
     await fireEvent.click(screen.getByRole('button', { name: 'Créer un cocktail' }));
-    await screen.findByRole('dialog', { name: 'Créer un cocktail' });
-    await fillValidCocktailForm('Cocktail erreur');
-    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-    expect(screen.getByRole('dialog', { name: 'Créer un cocktail' })).toBeTruthy();
-    expect(screen.getByRole('alert').textContent).toContain('Impossible d’enregistrer ce cocktail');
-    createSpy.mockRestore();
+    const dialog = await screen.findByRole('dialog', { name: 'Créer un cocktail' });
+    await fillValidCocktailForm('Doublons');
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter un ingrédient' }));
+    await fireEvent.update(within(dialog).getByLabelText('Ingrédient 2'), 'citron');
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
+    expect(within(dialog).getByText(/doit être unique/)).toBeTruthy();
+    expect(adminApi.createCocktail).not.toHaveBeenCalled();
   });
 
-  it('opens cocktail editing in the same modal from the list and updates the existing cocktail', async () => {
+  it('opens edit in the same modal, loading the detail and updating', async () => {
+    vi.mocked(adminApi.updateCocktail).mockResolvedValue(cocktailResponse({ name: 'Mojito édition' }));
     const r = await router('/bar/cocktails');
-    const catalog = useCatalogStore();
-    const updateSpy = vi.spyOn(catalog, 'updateCocktail');
     render(CocktailManagementView, { global: { plugins: [r] } });
-    const mojitoRow = screen.getByRole('heading', { name: 'Mojito' }).closest('article') as HTMLElement;
-
-    await fireEvent.click(within(mojitoRow).getByRole('button', { name: 'Modifier' }));
+    const row = (await screen.findByRole('heading', { name: 'Mojito' })).closest('article') as HTMLElement;
+    await fireEvent.click(within(row).getByRole('button', { name: 'Modifier' }));
     const dialog = await screen.findByRole('dialog', { name: 'Modifier le cocktail' });
-    expect(dialog.parentElement?.className).toContain('modal-backdrop');
-    expect(dialog.className).toContain('modal-panel--large');
-    expect(screen.getByText('Mojito')).toBeTruthy();
-    expect(r.currentRoute.value.name).toBe('bar-cocktails');
-    expect(r.currentRoute.value.query).toMatchObject({ modal: 'edit', cocktailId: 'mojito' });
-    expect(within(dialog).getByDisplayValue('Mojito')).toBeTruthy();
+    await waitFor(() => expect(adminApi.fetchCocktail).toHaveBeenCalledWith(101));
+    await waitFor(() => expect(within(dialog).getByDisplayValue('Mojito')).toBeTruthy());
 
     await fireEvent.update(within(dialog).getByLabelText(/^Nom/), 'Mojito édition');
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Modifier le cocktail' })).toBeNull());
-
-    expect(updateSpy).toHaveBeenCalledWith('mojito', expect.objectContaining({ name: 'Mojito édition' }));
-    expect(catalog.getCocktailById('mojito')?.name).toBe('Mojito édition');
-    expect(r.currentRoute.value.query.modal).toBeUndefined();
-    updateSpy.mockRestore();
-  });
-
-  it('handles the old cocktail creation route by opening the modal on the list', async () => {
-    const r = await router('/bar/cocktails/new');
-    expect(r.currentRoute.value.name).toBe('bar-cocktails');
-    expect(r.currentRoute.value.query.modal).toBe('create');
-    render(CocktailManagementView, { global: { plugins: [r] } });
-    expect(screen.getByRole('dialog', { name: 'Créer un cocktail' })).toBeTruthy();
-    await fireEvent.click(screen.getByRole('button', { name: 'Fermer le formulaire cocktail' }));
-    await waitFor(() => expect(r.currentRoute.value.query.modal).toBeUndefined());
+    await waitFor(() => expect(adminApi.updateCocktail).toHaveBeenCalledWith(101, expect.objectContaining({ name: 'Mojito édition' })));
+    expect(await screen.findByText('Cocktail modifié')).toBeTruthy();
   });
 
   it('redirects the old cocktail edit route to the list edit modal', async () => {
-    const r = await router('/bar/cocktails/mojito/edit');
+    const r = await router('/bar/cocktails/101/edit');
     expect(r.currentRoute.value.name).toBe('bar-cocktails');
-    expect(r.currentRoute.value.query).toMatchObject({ modal: 'edit', cocktailId: 'mojito' });
+    expect(r.currentRoute.value.query).toMatchObject({ modal: 'edit', cocktailId: '101' });
     render(CocktailManagementView, { global: { plugins: [r] } });
-    expect(screen.getByRole('dialog', { name: 'Modifier le cocktail' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Modifier le cocktail' })).toBeTruthy();
   });
 });

@@ -19,7 +19,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/client/menu' },
 
-    // --- Customer flow (public, still mock-backed) ---
+    // --- Customer flow (public, backed by the real /api/menu and /api/orders) ---
     { path: '/client', component: ClientLayout, children: [
       { path: '', redirect: '/client/menu' },
       { path: 'menu', name: 'client-menu', component: MenuView },

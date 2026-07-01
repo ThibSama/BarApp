@@ -1,28 +1,36 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { Cocktail, Size } from '@/types/domain';
+import type { ApiSize } from '@/types/api';
+import type { MenuCocktailView } from '@/stores/menu';
 import CocktailImage from '@/components/common/CocktailImage.vue';
 import { formatCurrency } from '@/utils/formatters';
+import { availableSizes, priceForSize } from '@/utils/menu';
 
-const props = defineProps<{ cocktail: Cocktail; categoryName: string }>();
-const emit = defineEmits<{ add: [cocktail: Cocktail, size: Size] }>();
+const props = defineProps<{ cocktail: MenuCocktailView; categoryName: string }>();
+const emit = defineEmits<{ add: [cocktail: MenuCocktailView, size: ApiSize] }>();
 
-const ingredientSummary = computed(() => props.cocktail.ingredients.slice(0, 4).join(', ') || props.cocktail.shortDescription);
-const sizeOptions: Size[] = ['S', 'M', 'L'];
-const selectedSize = ref<Size>('S');
-const selectedPrice = computed(() => props.cocktail.prices[selectedSize.value]);
+const ingredientSummary = computed(() => {
+  const names = props.cocktail.ingredients.map((ingredient) => ingredient.name);
+  return names.slice(0, 4).join(', ') || props.cocktail.description;
+});
+
+// Only the sizes the backend actually returns are offered.
+const sizeOptions = computed<ApiSize[]>(() => availableSizes(props.cocktail.prices));
+const selectedSize = ref<ApiSize>(sizeOptions.value[0] ?? 'M');
+const selectedPrice = computed(() => priceForSize(props.cocktail.prices, selectedSize.value) ?? 0);
+const canAdd = computed(() => sizeOptions.value.length > 0);
 </script>
 
 <template>
   <article class="cocktail-card">
     <RouterLink class="card-link" :to="`/client/cocktails/${cocktail.id}`" :aria-label="`Voir le détail de ${cocktail.name}`">
-      <CocktailImage :image-url="cocktail.imageUrl" :cocktail-name="cocktail.name" />
+      <CocktailImage :image-url="cocktail.imageUrl ?? undefined" :cocktail-name="cocktail.name" />
     </RouterLink>
     <div class="card-body">
       <p class="category-line">{{ categoryName }}</p>
       <h3>{{ cocktail.name }}</h3>
       <p class="ingredients">{{ ingredientSummary }}</p>
-      <fieldset class="card-size-selector" :aria-label="`Choisir la taille de ${cocktail.name}`">
+      <fieldset v-if="canAdd" class="card-size-selector" :aria-label="`Choisir la taille de ${cocktail.name}`">
         <legend class="visually-hidden">Taille</legend>
         <label v-for="size in sizeOptions" :key="size" :class="{ selected: selectedSize === size }">
           <input v-model="selectedSize" type="radio" :name="`size-${cocktail.id}`" :value="size" />
@@ -31,7 +39,7 @@ const selectedPrice = computed(() => props.cocktail.prices[selectedSize.value]);
       </fieldset>
       <div class="card-actions">
         <strong>{{ formatCurrency(selectedPrice) }}</strong>
-        <button class="button icon add-button" type="button" :disabled="!cocktail.available" :aria-label="`Ajouter ${cocktail.name} taille ${selectedSize} au panier`" @click="emit('add', cocktail, selectedSize)">+</button>
+        <button class="button icon add-button" type="button" :disabled="!canAdd" :aria-label="`Ajouter ${cocktail.name} taille ${selectedSize} au panier`" @click="emit('add', cocktail, selectedSize)">+</button>
       </div>
     </div>
   </article>

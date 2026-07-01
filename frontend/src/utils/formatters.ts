@@ -1,29 +1,11 @@
-import type { OrderStatus, PreparationStep, Size } from '@/types/domain';
 import type { ApiOrderStatus, ApiPreparationStatus } from '@/types/api';
 
-export const sizeLabels: Record<Size, string> = { S: 'S', M: 'M', L: 'L' };
-
-export const orderStatusLabels: Record<OrderStatus, string> = {
-  ordered: 'Commandée',
-  preparing: 'En cours de préparation',
-  completed: 'Terminée',
-};
-
-export const preparationStepLabels: Record<PreparationStep, string> = {
-  ingredients: 'Préparation des ingrédients',
-  assembly: 'Assemblage',
-  garnish: 'Dressage',
-  completed: 'Terminée',
-};
-
-export const preparationSteps: PreparationStep[] = ['ingredients', 'assembly', 'garnish', 'completed'];
-
-// --- Backend (barmaker) enum labels. Kept separate from the mock/customer
-// labels above so the two contracts never bleed into each other. ---
+// --- Backend enum labels. These are the single source of truth for both the
+// barmaker and the customer screens, which now share the real API contract. ---
 
 export const apiOrderStatusLabels: Record<ApiOrderStatus, string> = {
   ORDERED: 'Commandée',
-  IN_PROGRESS: 'En préparation',
+  IN_PROGRESS: 'En cours de préparation',
   COMPLETED: 'Terminée',
 };
 

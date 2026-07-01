@@ -53,6 +53,26 @@ public class CocktailPrice {
     protected CocktailPrice() {
     }
 
+    /** Factory for a new active price line for one size of a cocktail. */
+    public static CocktailPrice create(Cocktail cocktail, CocktailSize size, BigDecimal price) {
+        CocktailPrice cocktailPrice = new CocktailPrice();
+        cocktailPrice.cocktail = cocktail;
+        cocktailPrice.size = size;
+        cocktailPrice.price = price;
+        cocktailPrice.active = true;
+        return cocktailPrice;
+    }
+
+    /**
+     * Updates the amount of an existing size in place and (re)activates it, so a
+     * price replacement keeps exactly one active row per size under the
+     * {@code (cocktail_id, size)} unique constraint.
+     */
+    public void update(BigDecimal price) {
+        this.price = price;
+        this.active = true;
+    }
+
     public Long getId() {
         return id;
     }

@@ -15,6 +15,7 @@ import {
   formatCurrency,
   formatTime,
 } from '@/utils/formatters';
+import { getPaymentMethodLabel } from '@/utils/payments';
 import type { ApiPreparationStatus, BarOrderItem } from '@/types/api';
 
 const route = useRoute();
@@ -83,7 +84,7 @@ usePolling(() => {
   <section v-else-if="order" class="stack order-detail-page">
     <RouterLink class="back-link" to="/bar/orders"><AppIcon name="arrow-left" :size="18" />Retour aux commandes</RouterLink>
     <div class="detail-header-row">
-      <BarmakerPageHeader eyebrow="DÉTAIL COMMANDE" :title="order.publicCode" :description="`Créée le ${formatTime(order.createdAt)}`" />
+      <BarmakerPageHeader eyebrow="DÉTAIL COMMANDE" :title="order.publicCode" :description="`Table ${order.tableNumber} · créée le ${formatTime(order.createdAt)}`" />
       <StatusBadge :label="apiOrderStatusLabels[order.status]" :tone="apiOrderStatusTone(order.status)" />
     </div>
 
@@ -110,7 +111,9 @@ usePolling(() => {
 
       <aside class="order-summary">
         <h2>Résumé</h2>
+        <p><span>Table</span><strong>{{ order.tableNumber }}</strong></p>
         <p><span>Statut</span><strong>{{ apiOrderStatusLabels[order.status] }}</strong></p>
+        <p><span>Paiement</span><strong>{{ getPaymentMethodLabel(order.paymentMethod) }}</strong></p>
         <p><span>Cocktails</span><strong>{{ order.items.length }}</strong></p>
         <p class="total"><span>Total</span><strong>{{ formatCurrency(order.totalAmount) }}</strong></p>
         <p v-if="order.status === 'COMPLETED'" class="alert success">Tous les cocktails sont terminés.</p>

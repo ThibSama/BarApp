@@ -12,6 +12,7 @@ defineProps<{ order: BarOrderSummary }>();
     <div class="order-main">
       <p class="eyebrow">{{ formatTime(order.createdAt) }}</p>
       <h3>{{ order.publicCode }}</h3>
+      <p class="table-line">Table {{ order.tableNumber }}</p>
     </div>
     <StatusBadge :label="apiOrderStatusLabels[order.status]" :tone="apiOrderStatusTone(order.status)" />
     <p class="meta">{{ order.completedItemCount }}/{{ order.itemCount }} cocktail(s)</p>
@@ -26,6 +27,7 @@ defineProps<{ order: BarOrderSummary }>();
 .order-row:last-child { border-bottom: 0; }
 .order-main { min-width: 0; }
 h3 { margin: 0; font-size: 1.12rem; letter-spacing: -0.02em; }
+.table-line { margin: 4px 0 0; display: inline-block; padding: 2px 10px; border-radius: var(--radius-round); background: var(--color-surface-muted); color: var(--color-primary); font-size: 0.82rem; font-weight: 850; }
 .meta { margin: 0; color: var(--color-text-secondary); font-size: 0.94rem; font-weight: 600; }
 .total { font-size: 1rem; color: var(--color-primary); }
 .open-link { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-height: 40px; padding: 0 14px; border-radius: var(--radius-medium); background: var(--color-primary); color: #fff; font-weight: 800; font-size: 0.9rem; box-shadow: 0 6px 14px rgba(29,43,31,0.1); }

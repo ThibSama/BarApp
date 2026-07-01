@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BarmakerCocktailForm from '@/components/barmaker/BarmakerCocktailForm.vue';
 import BarmakerFormModal from '@/components/barmaker/BarmakerFormModal.vue';
@@ -8,43 +8,73 @@ import ConfirmDialog from '@/components/barmaker/ConfirmDialog.vue';
 import AppIcon from '@/components/common/AppIcon.vue';
 import CocktailImage from '@/components/common/CocktailImage.vue';
 import StatusBadge from '@/components/common/StatusBadge.vue';
-import { useCatalogStore } from '@/stores/catalog';
+import SuccessToast from '@/components/common/SuccessToast.vue';
+import { useSuccessToast } from '@/composables/useSuccessToast';
+import { useAdminCocktailsStore } from '@/stores/adminCocktails';
+import { useAdminCategoriesStore } from '@/stores/adminCategories';
+import type { CocktailResponse } from '@/types/api';
+import { describeAdminError } from '@/utils/adminErrors';
 import { formatCurrency } from '@/utils/formatters';
+import { priceForSize } from '@/utils/menu';
 
-const catalog = useCatalogStore();
+const store = useAdminCocktailsStore();
+const categories = useAdminCategoriesStore();
 const route = useRoute();
 const router = useRouter();
-const selectedCategory = ref('all');
+const { toastMessage, toastVisible, toastId, showSuccessToast } = useSuccessToast();
+
+const selectedCategory = ref<number | 'all'>('all');
 const availability = ref<'all' | 'available' | 'unavailable'>('all');
 const search = ref('');
-const pendingDeleteId = ref('');
+const pendingDeactivate = ref<CocktailResponse | null>(null);
+const actionError = ref('');
 const formModalKey = ref(0);
 const formSubmitting = ref(false);
 const cocktailForm = ref<InstanceType<typeof BarmakerCocktailForm> | null>(null);
+
+onMounted(() => {
+  store.load({ initial: true });
+  if (!categories.loaded) categories.load({ initial: true });
+});
 
 const formMode = computed<'create' | 'edit' | null>(() => {
   if (route.query.modal === 'create') return 'create';
   if (route.query.modal === 'edit' && typeof route.query.cocktailId === 'string') return 'edit';
   return null;
 });
-const editingCocktailId = computed(() => formMode.value === 'edit' && typeof route.query.cocktailId === 'string' ? route.query.cocktailId : '');
-const editingCocktail = computed(() => editingCocktailId.value ? catalog.getCocktailById(editingCocktailId.value) : undefined);
-const formModalOpen = computed(() => formMode.value === 'create' || Boolean(editingCocktail.value));
-const formModalTitle = computed(() => formMode.value === 'edit' ? 'Modifier le cocktail' : 'Créer un cocktail');
-const formModalEyebrow = computed(() => formMode.value === 'edit' ? 'MODIFICATION' : 'CRÉATION');
+const editingCocktailId = computed(() =>
+  formMode.value === 'edit' && typeof route.query.cocktailId === 'string'
+    ? Number(route.query.cocktailId)
+    : undefined,
+);
+const formModalOpen = computed(() => formMode.value === 'create' || formMode.value === 'edit');
+const formModalTitle = computed(() => (formMode.value === 'edit' ? 'Modifier le cocktail' : 'Créer un cocktail'));
+const formModalEyebrow = computed(() => (formMode.value === 'edit' ? 'MODIFICATION' : 'CRÉATION'));
 
-const filteredCocktails = computed(() => catalog.cocktails.filter((cocktail) => {
-  const matchesCategory = selectedCategory.value === 'all' || cocktail.categoryId === selectedCategory.value;
-  const matchesAvailability = availability.value === 'all' || (availability.value === 'available' ? cocktail.available : !cocktail.available);
-  const term = search.value.trim().toLocaleLowerCase('fr-FR');
-  const matchesSearch = !term || cocktail.name.toLocaleLowerCase('fr-FR').includes(term);
-  return matchesCategory && matchesAvailability && matchesSearch;
-}));
+const filteredCocktails = computed(() =>
+  store.items.filter((cocktail) => {
+    const matchesCategory = selectedCategory.value === 'all' || cocktail.categoryId === selectedCategory.value;
+    const matchesAvailability =
+      availability.value === 'all' || (availability.value === 'available' ? cocktail.active : !cocktail.active);
+    const term = search.value.trim().toLocaleLowerCase('fr-FR');
+    const matchesSearch = !term || cocktail.name.toLocaleLowerCase('fr-FR').includes(term);
+    return matchesCategory && matchesAvailability && matchesSearch;
+  }),
+);
 
-function clearFilters(): void { selectedCategory.value = 'all'; availability.value = 'all'; search.value = ''; }
-function confirmDelete(): void { if (pendingDeleteId.value) catalog.deleteCocktail(pendingDeleteId.value); pendingDeleteId.value = ''; }
-function openCreateModal(): void { formModalKey.value += 1; router.push({ name: 'bar-cocktails', query: { ...route.query, modal: 'create', cocktailId: undefined } }); }
-function openEditModal(cocktailId: string): void { formModalKey.value += 1; router.push({ name: 'bar-cocktails', query: { ...route.query, modal: 'edit', cocktailId } }); }
+function clearFilters(): void {
+  selectedCategory.value = 'all';
+  availability.value = 'all';
+  search.value = '';
+}
+function openCreateModal(): void {
+  formModalKey.value += 1;
+  router.push({ name: 'bar-cocktails', query: { ...route.query, modal: 'create', cocktailId: undefined } });
+}
+function openEditModal(cocktailId: number): void {
+  formModalKey.value += 1;
+  router.push({ name: 'bar-cocktails', query: { ...route.query, modal: 'edit', cocktailId: String(cocktailId) } });
+}
 function closeFormModal(force = false): void {
   if (formSubmitting.value && !force) return;
   const query = { ...route.query };
@@ -52,7 +82,36 @@ function closeFormModal(force = false): void {
   delete query.cocktailId;
   router.push({ name: 'bar-cocktails', query });
 }
-function onSaved(): void { closeFormModal(true); }
+function onSaved(): void {
+  showSuccessToast(formMode.value === 'edit' ? 'Cocktail modifié' : 'Cocktail créé');
+  closeFormModal(true);
+}
+
+async function toggleActive(cocktail: CocktailResponse): Promise<void> {
+  actionError.value = '';
+  if (cocktail.active) {
+    pendingDeactivate.value = cocktail;
+    return;
+  }
+  try {
+    await store.reactivate(cocktail);
+    showSuccessToast('Cocktail réactivé');
+  } catch (err) {
+    actionError.value = describeAdminError(err);
+  }
+}
+
+async function confirmDeactivate(): Promise<void> {
+  const cocktail = pendingDeactivate.value;
+  pendingDeactivate.value = null;
+  if (!cocktail) return;
+  try {
+    await store.deactivate(cocktail.id);
+    showSuccessToast('Cocktail désactivé');
+  } catch (err) {
+    actionError.value = describeAdminError(err);
+  }
+}
 
 watch(() => [route.query.modal, route.query.cocktailId], () => { formModalKey.value += 1; });
 </script>
@@ -61,23 +120,36 @@ watch(() => [route.query.modal, route.query.cocktailId], () => { formModalKey.va
   <section class="stack cocktail-page">
     <BarmakerPageHeader eyebrow="GESTION" title="Cocktails" description="Gérez les recettes, les prix et les disponibilités de la carte." action-label="Créer un cocktail" action-icon="plus" @action="openCreateModal" />
 
+    <SuccessToast :message="toastMessage" :visible="toastVisible" :toast-key="toastId" />
+    <p v-if="actionError" class="alert error" role="alert">{{ actionError }}</p>
+
     <section class="toolbar" aria-label="Filtres cocktails">
       <label class="search-field">Recherche<span class="input-wrap"><AppIcon name="search" :size="20" /><input v-model="search" type="search" placeholder="Nom du cocktail" /></span></label>
-      <label>Catégorie<select v-model="selectedCategory"><option value="all">Toutes les catégories</option><option v-for="category in catalog.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
+      <label>Catégorie<select v-model="selectedCategory"><option value="all">Toutes les catégories</option><option v-for="category in categories.items" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
       <label>Disponibilité<select v-model="availability"><option value="all">Tous</option><option value="available">Disponible</option><option value="unavailable">Indisponible</option></select></label>
       <button class="reset-action" type="button" @click="clearFilters"><AppIcon name="sliders" :size="17" />Réinitialiser</button>
     </section>
 
-    <div v-if="filteredCocktails.length" class="cocktail-list">
-      <article v-for="cocktail in filteredCocktails" :key="cocktail.id" class="cocktail-row">
-        <div class="thumb"><CocktailImage :image-url="cocktail.imageUrl" :cocktail-name="cocktail.name" /></div>
-        <div class="cocktail-copy"><h2>{{ cocktail.name }}</h2><p>{{ cocktail.shortDescription }}</p><p class="category-meta">{{ catalog.getCategoryById(cocktail.categoryId)?.name ?? 'Catégorie' }}</p></div>
-        <dl class="prices"><div><dt>S</dt><dd>{{ formatCurrency(cocktail.prices.S) }}</dd></div><div><dt>M</dt><dd>{{ formatCurrency(cocktail.prices.M) }}</dd></div><div><dt>L</dt><dd>{{ formatCurrency(cocktail.prices.L) }}</dd></div></dl>
-        <StatusBadge :label="cocktail.available ? 'Disponible' : 'Indisponible'" :tone="cocktail.available ? 'success' : 'danger'" />
-        <div class="row-actions"><button class="admin-action secondary" type="button" @click="openEditModal(cocktail.id)"><AppIcon name="pencil" :size="16" />Modifier</button><button class="admin-action secondary" type="button" @click="catalog.toggleCocktail(cocktail.id)"><AppIcon name="power" :size="16" />{{ cocktail.available ? 'Désactiver' : 'Activer' }}</button><button class="icon-button danger" type="button" :aria-label="`Supprimer ${cocktail.name}`" @click="pendingDeleteId = cocktail.id"><AppIcon name="trash" :size="18" /></button></div>
-      </article>
-    </div>
-    <section v-else class="card empty-state"><h2>Aucun cocktail</h2><p>Créez un nouveau cocktail ou modifiez les filtres.</p></section>
+    <section v-if="store.loading && !store.loaded" class="card empty-state" aria-busy="true"><h2>Chargement des cocktails…</h2></section>
+    <section v-else-if="store.error && !store.items.length" class="card empty-state">
+      <h2>Impossible de charger les cocktails</h2>
+      <p>{{ store.error }}</p>
+      <button class="button" type="button" @click="store.load({ initial: true })">Réessayer</button>
+    </section>
+
+    <template v-else>
+      <p v-if="store.error" class="alert warning" role="status">{{ store.error }}</p>
+      <div v-if="filteredCocktails.length" class="cocktail-list">
+        <article v-for="cocktail in filteredCocktails" :key="cocktail.id" class="cocktail-row">
+          <div class="thumb"><CocktailImage :image-url="cocktail.imageUrl ?? undefined" :cocktail-name="cocktail.name" /></div>
+          <div class="cocktail-copy"><h2>{{ cocktail.name }}</h2><p>{{ cocktail.shortDescription }}</p><p class="category-meta">{{ cocktail.categoryName }}</p></div>
+          <dl class="prices"><div><dt>S</dt><dd>{{ formatCurrency(priceForSize(cocktail.prices, 'S') ?? 0) }}</dd></div><div><dt>M</dt><dd>{{ formatCurrency(priceForSize(cocktail.prices, 'M') ?? 0) }}</dd></div><div><dt>L</dt><dd>{{ formatCurrency(priceForSize(cocktail.prices, 'L') ?? 0) }}</dd></div></dl>
+          <StatusBadge :label="cocktail.active ? 'Disponible' : 'Indisponible'" :tone="cocktail.active ? 'success' : 'danger'" />
+          <div class="row-actions"><button class="admin-action secondary" type="button" @click="openEditModal(cocktail.id)"><AppIcon name="pencil" :size="16" />Modifier</button><button class="admin-action secondary" type="button" :disabled="store.isPending(cocktail.id)" @click="toggleActive(cocktail)"><AppIcon name="power" :size="16" />{{ cocktail.active ? 'Désactiver' : 'Activer' }}</button></div>
+        </article>
+      </div>
+      <section v-else class="card empty-state"><h2>Aucun cocktail</h2><p>Créez un nouveau cocktail ou modifiez les filtres.</p></section>
+    </template>
 
     <BarmakerFormModal
       :open="formModalOpen"
@@ -92,7 +164,7 @@ watch(() => [route.query.modal, route.query.cocktailId], () => { formModalKey.va
       <BarmakerCocktailForm
         ref="cocktailForm"
         :key="formModalKey"
-        :cocktail-id="editingCocktailId || undefined"
+        :cocktail-id="editingCocktailId"
         form-id="cocktail-modal-form"
         :show-footer="false"
         @saved="onSaved"
@@ -104,7 +176,7 @@ watch(() => [route.query.modal, route.query.cocktailId], () => { formModalKey.va
       </template>
     </BarmakerFormModal>
 
-    <ConfirmDialog :open="Boolean(pendingDeleteId)" title="Supprimer le cocktail" :message="`Supprimer ${catalog.getCocktailById(pendingDeleteId)?.name ?? 'ce cocktail'} ? Cette action retirera la recette de la gestion.`" confirm-label="Supprimer" @cancel="pendingDeleteId = ''" @confirm="confirmDelete" />
+    <ConfirmDialog :open="Boolean(pendingDeactivate)" title="Désactiver le cocktail" :message="`Désactiver ${pendingDeactivate?.name ?? 'ce cocktail'} ? Il restera visible ici mais disparaîtra de la carte client.`" confirm-label="Désactiver" @cancel="pendingDeactivate = null" @confirm="confirmDeactivate" />
   </section>
 </template>
 
@@ -134,8 +206,7 @@ watch(() => [route.query.modal, route.query.cocktailId], () => { formModalKey.va
 .admin-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 12px; border-radius: var(--radius-medium); font-weight: 800; cursor: pointer; }
 .admin-action.secondary { border: 1px solid transparent; background: var(--color-surface-muted); color: var(--color-primary); }
 .admin-action.secondary:hover { background: var(--color-background-soft); text-decoration: none; }
-.icon-button { width: 44px; height: 44px; display: inline-grid; place-items: center; border: 0; border-radius: var(--radius-round); background: #f8f6f2; color: var(--color-primary); cursor: pointer; }
-.icon-button.danger:hover { background: #fde8e7; color: var(--color-error); }
+.admin-action:disabled { opacity: 0.6; cursor: progress; }
 @media (min-width: 760px) { .toolbar { grid-template-columns: minmax(220px, 1.2fr) 1fr 1fr auto; } }
 @media (min-width: 1100px) { .cocktail-row { grid-template-columns: 76px minmax(0, 1fr) auto auto auto; } }
 @media (max-width: 700px) { .cocktail-row { margin: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-large); } .cocktail-list { border: 0; background: transparent; box-shadow: none; } .row-actions { justify-content: flex-start; } }

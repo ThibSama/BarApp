@@ -12,4 +12,16 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
      * name (case-insensitive) as a deterministic tie-breaker.
      */
     List<Category> findByActiveTrueOrderByDisplayOrderAscNameAsc();
+
+    /**
+     * Management listing: every category (active and inactive), ordered by
+     * display order, then name, then id as a deterministic final tie-breaker.
+     */
+    List<Category> findAllByOrderByDisplayOrderAscNameAscIdAsc();
+
+    /** Case-insensitive uniqueness check used on category creation. */
+    boolean existsByNameIgnoreCase(String name);
+
+    /** Case-insensitive uniqueness check on update, excluding the edited row. */
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
 }

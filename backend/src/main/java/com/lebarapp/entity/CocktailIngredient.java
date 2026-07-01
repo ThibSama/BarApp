@@ -42,6 +42,25 @@ public class CocktailIngredient {
     protected CocktailIngredient() {
     }
 
+    /**
+     * Factory for a join row linking an (already persisted) cocktail and
+     * ingredient. The composite id is initialized explicitly from both ids: the
+     * embeddable instance must already exist for {@code @MapsId} to populate it
+     * at persist time, and a non-null key keeps {@link #equals(Object)} stable.
+     * Fresh rows are inserted via {@code EntityManager.persist} (not
+     * {@code save}, which would {@code merge} an assigned-id entity).
+     */
+    public static CocktailIngredient create(Cocktail cocktail, Ingredient ingredient,
+                                            int displayOrder, String quantityLabel) {
+        CocktailIngredient association = new CocktailIngredient();
+        association.id = new CocktailIngredientId(cocktail.getId(), ingredient.getId());
+        association.cocktail = cocktail;
+        association.ingredient = ingredient;
+        association.displayOrder = displayOrder;
+        association.quantityLabel = quantityLabel;
+        return association;
+    }
+
     public CocktailIngredientId getId() {
         return id;
     }

@@ -4,7 +4,7 @@ Application web de commande de cocktails et de suivi de leur préparation.
 
 Ce dépôt contient le socle backend ainsi qu’un prototype frontend Vue 3 situé dans `frontend/`. Le backend couvre le schéma de base de données, les migrations Flyway, le modèle de persistance JPA et la première API publique de consultation de la carte (`GET /api/menu`).
 
-> Le frontend dans `frontend/` est un prototype autonome basé sur des données mockées. Il ne consomme pas encore le backend Spring Boot.
+> Le frontend dans `frontend/` consomme désormais **réellement** le backend Spring Boot : la carte client (`GET /api/menu`), la création et le suivi de commande (`POST`/`GET /api/orders`), ainsi que la gestion barmaker du catalogue (`/api/bar/categories`, `/api/bar/cocktails`, `/api/bar/ingredients`). Les mocks de production ont été supprimés ; seules des *fixtures de test* subsistent sous `frontend/src/test/`.
 
 ---
 
@@ -149,9 +149,11 @@ par Nginx (aucun nom interne Docker n'est exposé au navigateur). Pensez à ajou
 l'origine LAN à `APP_CORS_ALLOWED_ORIGINS` si vous appelez l'API en direct depuis
 ce navigateur.
 
-> ⚠️ **Le routage Docker est prêt, mais les écrans Vue utilisent encore des
-> données mockées** jusqu'à la prochaine passe d'intégration ; le frontend ne
-> consomme pas encore réellement l'API.
+> ✅ **Les écrans Vue consomment réellement l'API** via le proxy `/api` :
+> carte client, panier (IDs/tailles/prix réels), saisie obligatoire du numéro de
+> table puis du mode de paiement, création de commande, confirmation et suivi
+> temps réel (polling ~2,5 s), et gestion barmaker du catalogue. Aucune donnée
+> mockée de production ne subsiste.
 
 ---
 
@@ -306,7 +308,11 @@ génère alors un `OrderItem` distinct.
 - `items` obligatoire, **1 à 50** éléments, aucun élément `null` ;
 - `cocktailId` obligatoire et positif ;
 - `size` obligatoire, valeurs acceptées `S`, `M`, `L` uniquement (toute autre
-  valeur d'énumération est rejetée comme requête mal formée).
+  valeur d'énumération est rejetée comme requête mal formée) ;
+- `tableNumber` obligatoire, entier **1 à 999** ;
+- `paymentMethod` obligatoire, valeurs acceptées `CASH_AT_COUNTER`,
+  `CARD_AT_COUNTER`, `CARD_IN_APP`, `APPLE_PAY`, `GOOGLE_PAY` (ajouté par la
+  migration **V4**, voir plus bas).
 
 Requête :
 
@@ -318,7 +324,9 @@ curl -i -X POST http://localhost:8080/api/orders \
       {"cocktailId": 1, "size": "M"},
       {"cocktailId": 1, "size": "M"},
       {"cocktailId": 3, "size": "S"}
-    ]
+    ],
+    "tableNumber": 12,
+    "paymentMethod": "CARD_IN_APP"
   }'
 ```
 
@@ -330,6 +338,8 @@ Réponse `201 Created` (corps identique à celui de `GET /api/orders/{orderId}`)
   "publicCode": "WENZTF",
   "status": "ORDERED",
   "totalAmount": 30.50,
+  "tableNumber": 12,
+  "paymentMethod": "CARD_IN_APP",
   "createdAt": "2026-06-29T09:47:30.267029Z",
   "completedAt": null,
   "items": [
@@ -345,6 +355,11 @@ Réponse `201 Created` (corps identique à celui de `GET /api/orders/{orderId}`)
   ]
 }
 ```
+
+`tableNumber` et `paymentMethod` sont renvoyés tels quels pour les écrans de
+confirmation et de suivi. Le résumé barmaker (`GET /api/bar/orders`) expose
+également `tableNumber`, et le détail barmaker (`GET /api/bar/orders/{id}`)
+expose `tableNumber` et `paymentMethod`.
 
 ### Contrat `GET /api/orders/{orderId}`
 
@@ -375,6 +390,20 @@ figées à la création et **ne changent jamais**, même si le catalogue est ens
 modifié (cocktail renommé, prix changé) ou le cocktail désactivé. Un test
 d'intégration le prouve explicitement.
 
+#### Unicité du `publicCode` (anti-collision)
+
+Le `publicCode` (6 caractères alphanumériques majuscules, alphabet sans
+caractères ambigus) est garanti unique par la **contrainte d'unicité base de
+données** `customer_order_public_code_key`, qui fait autorité. La création de
+commande est protégée à deux niveaux : un pré-contrôle applicatif peu coûteux et,
+surtout, une **reprise bornée** (jusqu'à 5 tentatives) — chaque tentative dans sa
+**propre transaction** — qui régénère un nouveau code uniquement si l'`INSERT`
+perd la course d'unicité du `public_code`. Toute autre erreur de persistance
+n'est **jamais** rejouée, et après épuisement des tentatives une erreur contrôlée
+`500 PUBLIC_CODE_GENERATION_FAILED` est renvoyée (jamais un 500 incontrôlé). Le
+format, la longueur, l'alphabet et la contrainte d'unicité sont inchangés ; aucun
+UUID n'est exposé comme code public.
+
 ### Format d'erreur (toutes les erreurs API)
 
 Toutes les erreurs gérées partagent une enveloppe stable et un `code`
@@ -397,7 +426,16 @@ machine-lisible ; les messages utilisateur sont en français.
 | Validation de champ (items, id…)      | `400`  | `VALIDATION_ERROR`              |
 | UUID de suivi invalide                | `400`  | `INVALID_IDENTIFIER`            |
 | Cocktail introuvable                  | `404`  | `COCKTAIL_NOT_FOUND`            |
+| Catégorie introuvable                 | `404`  | `CATEGORY_NOT_FOUND`            |
+| Ingrédient introuvable                | `404`  | `INGREDIENT_NOT_FOUND`          |
 | Commande introuvable                  | `404`  | `ORDER_NOT_FOUND`               |
+| Nom de catégorie déjà utilisé (insensible à la casse) | `409` | `CATEGORY_ALREADY_EXISTS` |
+| Nom de cocktail déjà utilisé dans la catégorie | `409` | `COCKTAIL_ALREADY_EXISTS`     |
+| Nom d'ingrédient déjà utilisé (insensible à la casse) | `409` | `INGREDIENT_ALREADY_EXISTS` |
+| Catégorie cible inactive (rattachement cocktail) | `409` | `CATEGORY_INACTIVE`          |
+| Données de catalogue invalides (ingrédients/prix) | `400` | `INVALID_CATALOG_REQUEST`   |
+| Authentification requise / jeton invalide | `401` | `AUTHENTICATION_REQUIRED` / `INVALID_TOKEN` |
+| Rôle insuffisant                      | `403`  | `ACCESS_DENIED`                 |
 | Cocktail inactif                      | `409`  | `COCKTAIL_UNAVAILABLE`          |
 | Taille indisponible                   | `409`  | `SIZE_UNAVAILABLE`              |
 | Prix (taille) inactif                 | `409`  | `PRICE_UNAVAILABLE`             |
@@ -409,12 +447,198 @@ machine-lisible ; les messages utilisateur sont en français.
 
 ---
 
+## Authentification (barmaker)
+
+L'API barmaker est protégée par **JWT** (Spring Security, resource server
+stateless). Les routes `/api/bar/**` exigent le rôle `ROLE_BARMAKER` ; `GET
+/api/menu`, `POST /api/orders` et `GET /api/orders/{id}` restent publics.
+
+**Identifiants de démonstration** (développement / démo uniquement, créés par les
+migrations V3/V5 — jamais en production) :
+
+- `username` : `barmaker`
+- `password` : `barmaker-test`
+
+```bash
+# 1. Obtenir un jeton
+curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"barmaker","password":"barmaker-test"}'
+# -> { "accessToken": "...", "tokenType": "Bearer", "expiresIn": 3600, "user": {...} }
+
+# 2. Appeler une route protégée
+curl -s http://localhost:8080/api/bar/categories \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+Un appel non authentifié à `/api/bar/**` renvoie `401 AUTHENTICATION_REQUIRED` ;
+un jeton valide sans le rôle requis renvoie `403 ACCESS_DENIED`.
+
+---
+
+## API de gestion du catalogue (barmaker)
+
+Routes protégées (`ROLE_BARMAKER` obligatoire) pour gérer catégories et
+cocktails. Les entités JPA ne sont jamais exposées ; seules des DTO transitent.
+
+> **« Suppression » = désactivation logique.** `DELETE` ne supprime jamais
+> physiquement une catégorie, un cocktail, un ingrédient ou un prix : il passe
+> `active = false`. Les données (et les snapshots de commandes) sont conservées,
+> la ligne disparaît de `GET /api/menu` mais reste visible dans la gestion, et
+> une réactivation est possible via `PUT` (`active: true`).
+
+### Catégories
+
+| Méthode | Route | Succès | Erreurs |
+|---------|-------|--------|---------|
+| `GET`    | `/api/bar/categories`               | `200` (actives **et** inactives) | `401`/`403` |
+| `POST`   | `/api/bar/categories`               | `201` + `Location`               | `400`, `409 CATEGORY_ALREADY_EXISTS` |
+| `PUT`    | `/api/bar/categories/{categoryId}`  | `200`                            | `400`, `404`, `409` |
+| `DELETE` | `/api/bar/categories/{categoryId}`  | `204` (désactivation)            | `404` |
+
+Requête (création/mise à jour) :
+
+```json
+{
+  "name": "Classiques",
+  "description": "Les grands classiques du bar.",
+  "displayOrder": 1,
+  "active": true
+}
+```
+
+Règles : `name` obligatoire et **trimmé**, ≤ 100 caractères, unique
+(insensible à la casse) ; `description` optionnelle (≤ 255, V4), une chaîne vide
+est stockée `null` ; `displayOrder` ≥ 0 ; `active` par défaut `true` à la
+création. Tri de la liste : `displayOrder`, puis `name`, puis `id`.
+
+Réponse :
+
+```json
+{ "id": 1, "name": "Classiques", "description": "Les grands classiques du bar.", "displayOrder": 1, "active": true }
+```
+
+### Cocktails (tailles & prix)
+
+| Méthode | Route | Succès | Erreurs |
+|---------|-------|--------|---------|
+| `GET`    | `/api/bar/cocktails`               | `200` (actifs **et** inactifs) | `401`/`403` |
+| `GET`    | `/api/bar/cocktails/{cocktailId}`  | `200`                          | `404` |
+| `POST`   | `/api/bar/cocktails`               | `201` + `Location`             | `400`, `404 CATEGORY_NOT_FOUND`, `409` |
+| `PUT`    | `/api/bar/cocktails/{cocktailId}`  | `200`                          | `400`, `404`, `409` |
+| `DELETE` | `/api/bar/cocktails/{cocktailId}`  | `204` (désactivation)          | `404` |
+
+Requête (création/mise à jour) :
+
+```json
+{
+  "categoryId": 1,
+  "name": "Mojito",
+  "description": "Cocktail frais à base de rhum.",
+  "shortDescription": "Rhum, menthe et citron vert.",
+  "imageUrl": "https://example.test/mojito.jpg",
+  "active": true,
+  "ingredients": [
+    { "name": "Rhum blanc", "quantityLabel": "5 cl", "displayOrder": 1 },
+    { "name": "Menthe",     "quantityLabel": "8 feuilles", "displayOrder": 2 }
+  ],
+  "prices": [
+    { "size": "S", "price": 7.50 },
+    { "size": "M", "price": 9.00 },
+    { "size": "L", "price": 11.00 }
+  ]
+}
+```
+
+Règles principales :
+
+- `categoryId` obligatoire, la catégorie doit **exister et être active** (sinon
+  `404 CATEGORY_NOT_FOUND` ou `409 CATEGORY_INACTIVE`) ;
+- `name` obligatoire, trimmé, ≤ 150, **unique (insensible à la casse) dans la
+  catégorie** ; le même nom est autorisé dans une autre catégorie ;
+- `description` obligatoire ; `shortDescription` optionnelle (≤ 255, colonne V4
+  `short_description`) ; `imageUrl` optionnelle ;
+- **au moins un ingrédient** ; noms trimmés, **uniques (insensible à la casse)
+  dans la requête** ; `quantityLabel` optionnel ; `displayOrder` ≥ 0 ; les
+  ingrédients sont renvoyés triés par `displayOrder` ;
+- **exactement trois prix : un S, un M, un L**, chacun `> 0` (`BigDecimal`) ;
+- `active` par défaut `true` à la création.
+
+Les **ingrédients sont réutilisés** de façon transactionnelle et insensible à la
+casse (un même ingrédient est partagé entre cocktails, jamais dupliqué ; un
+ingrédient désactivé est réactivé s'il est réutilisé). À la mise à jour, les
+ingrédients sont **remplacés** (suppression/réinsertion déterministe) et les prix
+sont **réécrits en place** (un seul prix actif par taille). Toutes ces opérations
+ont lieu dans **une seule transaction**.
+
+La réponse de gestion contient l'`id`, `categoryId`, `categoryName`, `name`,
+`description`, `shortDescription`, `imageUrl`, `active`, les ingrédients ordonnés
+et les prix S/M/L — soit toutes les données nécessaires au futur formulaire Vue.
+
+> `GET /api/menu` (public) continue de n'exposer **que** les catégories,
+> cocktails, ingrédients et prix **actifs** : son comportement est inchangé.
+
+### Ingrédients (gestion autonome)
+
+API autonome pour administrer le référentiel d'ingrédients partagé entre
+cocktails. Le modèle d'ingrédient ne porte que `id`, `name` et `active` :
+aucune description, unité, quantité, allergène, stock ni prix n'existe, donc rien
+de tel n'est exposé.
+
+| Méthode | Route | Succès | Erreurs |
+|---------|-------|--------|---------|
+| `GET`    | `/api/bar/ingredients`              | `200` (actifs **et** inactifs) | `401`/`403` |
+| `GET`    | `/api/bar/ingredients/{id}`         | `200`                          | `404 INGREDIENT_NOT_FOUND` |
+| `POST`   | `/api/bar/ingredients`              | `201` + `Location`             | `400`, `409 INGREDIENT_ALREADY_EXISTS` |
+| `PUT`    | `/api/bar/ingredients/{id}`         | `200`                          | `400`, `404`, `409` |
+| `DELETE` | `/api/bar/ingredients/{id}`         | `204` (désactivation logique)  | `404` |
+
+Requête (création/mise à jour) :
+
+```json
+{ "name": "Menthe fraîche", "active": true }
+```
+
+Règles : `name` obligatoire et **trimmé**, ≤ 120 caractères, **unique
+(insensible à la casse)** via vérification en base ; `active` par défaut `true` à
+la création. La liste de gestion est triée **actifs d'abord**, puis par nom
+(insensible à la casse), puis par `id`.
+
+Réponse :
+
+```json
+{ "id": 3, "name": "Menthe fraîche", "active": true }
+```
+
+**Désactivation logique & réutilisation par les cocktails.** `DELETE` passe
+`active=false` (idempotent) sans jamais supprimer la ligne ni les associations
+`cocktail_ingredient` : l'historique est préservé. Un ingrédient inactif
+**disparaît de la composition affichée** d'un cocktail dans `GET /api/menu`
+(règle de menu déjà établie et testée), mais le cocktail reste exposé. La
+création/édition d'un cocktail **réutilise** un ingrédient existant de façon
+insensible à la casse (résolution centralisée `findByNameIgnoreCase`, partagée
+avec ce CRUD), ne crée jamais de doublon, et **réactive** un ingrédient inactif
+lorsqu'il est réutilisé.
+
+---
+
 ## Migrations de base de données
 
 - Les migrations Flyway vivent dans
   `backend/src/main/resources/db/migration/` :
   - `V1__create_schema.sql` — schéma (8 tables, contraintes, index, `pgcrypto`)
   - `V2__insert_demo_catalog.sql` — jeu de données de démonstration
+  - `V3__insert_demo_barmaker.sql` — compte barmaker de démonstration (hash BCrypt)
+  - `V4__add_order_table_payment_and_catalog_descriptions.sql` — ajout (additif,
+    sans perte de données) de `customer_order.table_number` (1..999),
+    `customer_order.payment_method` (set contraint), `category.description` et
+    `cocktail.short_description`
+  - `V5__update_demo_barmaker_password.sql` — rotation du mot de passe de démo
+    vers `barmaker-test` (idempotent : `UPDATE` puis `INSERT … ON CONFLICT`)
+- **Aucune migration appliquée (V1→V5) n'est modifiée.** Cette passe n'a pas
+  nécessité de nouvelle migration : les colonnes V4 (`description`,
+  `short_description`) couvrent déjà les besoins de gestion du catalogue, donc
+  **pas de V6**.
 - Elles sont **exécutées automatiquement au démarrage** de l'application et
   pendant les tests d'intégration. Hibernate ne crée/altère jamais le schéma
   (`ddl-auto=validate`).
@@ -427,8 +651,9 @@ machine-lisible ; les messages utilisateur sont en français.
 
 3 catégories actives (+1 inactive), 12 ingrédients actifs (+1 inactif),
 5 cocktails actifs (+1 inactif), prix en `S/M/L` (avec un prix inactif de
-démonstration). La table `app_user` est **volontairement vide** : aucune
-authentification ni mot de passe en clair à ce stade.
+démonstration). La table `app_user` contient **un compte barmaker de
+démonstration** (`barmaker` / `barmaker-test`, mot de passe stocké en hash
+BCrypt, jamais en clair).
 
 ---
 
@@ -438,13 +663,18 @@ authentification ni mot de passe en clair à ce stade.
   le bytecode 21 mais **compile et s'exécute sur JDK 25 LTS**. Byte Buddy est
   activé en mode expérimental (`-Dnet.bytebuddy.experimental=true`) pour accepter
   la version de classe du JVM 25.
-- **Frontend autonome** : le prototype Vue 3 dans `frontend/` utilise uniquement des données mockées et n’est pas encore connecté au backend Spring Boot.
-- **Pas d'authentification backend** : Spring Security / BCrypt / JWT viendront plus tard.
-  Les entités `AppUser` et l'enum de rôle existent uniquement pour la cohérence
-  du schéma.
-- **Pas de compte client** : les clients restent anonymes ; le suivi se fait via
-  l'UUID de la commande.
-- **Pas de paiement** et **pas d'annulation** de commande.
-- **Pas de workflow de préparation** côté barmaker : les statuts de préparation
-  existent mais aucune transition n'est exposée (pas d'endpoint `/api/bar/**`).
-- **Aucun endpoint d'administration** (catégories/cocktails/ingrédients/prix).
+- **Frontend connecté** : le frontend Vue 3 consomme désormais le backend pour
+  tous les écrans de production (carte client réelle, panier avec IDs/tailles/
+  prix réels, numéro de table obligatoire avant le paiement, création de commande
+  `POST /api/orders`, confirmation et suivi rechargés depuis `GET /api/orders/{id}`,
+  gestion barmaker des catégories/cocktails/ingrédients). Les **mocks de
+  production ont été supprimés** ; seules des fixtures de test demeurent sous
+  `frontend/src/test/fixtures/`. En cas d'indisponibilité de l'API, les écrans
+  affichent un état de chargement/erreur/réessai — **jamais** de fausse donnée.
+- **Pas de compte client** : les clients restent anonymes, **sans
+  authentification** ; seul l'espace barmaker est authentifié (JWT). Le suivi de
+  commande se fait via l'UUID de la commande.
+- **Paiement non encaissé** : `paymentMethod` est enregistré avec la commande
+  mais aucun encaissement réel n'est effectué ; pas d'annulation de commande.
+- La « suppression » de catégories/cocktails est une **désactivation logique** :
+  aucune donnée n'est supprimée physiquement (historique des commandes préservé).

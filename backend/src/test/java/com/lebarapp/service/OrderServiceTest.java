@@ -26,6 +26,8 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -35,7 +37,10 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,6 +63,8 @@ class OrderServiceTest {
     private PublicCodeGenerator publicCodeGenerator;
     @Mock
     private OrderMapper orderMapper;
+    @Mock
+    private ObjectProvider<OrderService> self;
 
     @InjectMocks
     private OrderService orderService;
@@ -69,6 +76,9 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Each createOrder attempt runs through the (real) self instance so the
+        // transactional persist step and its retry loop can be unit-tested.
+        when(self.getObject()).thenReturn(orderService);
         mojito = cocktailWithPrices(1L, "Mojito", true,
                 activePrice(CocktailSize.S, "8.50", true),
                 activePrice(CocktailSize.M, "10.50", true),
@@ -125,6 +135,54 @@ class OrderServiceTest {
     }
 
     @Test
+    void retriesWhenInsertHitsPublicCodeUniqueConstraint() {
+        // Pre-check passes for both codes, but the first INSERT loses the
+        // public_code race at flush time; the second attempt succeeds.
+        when(cocktailRepository.findWithPricesById(1L)).thenReturn(Optional.of(mojito));
+        when(publicCodeGenerator.generate()).thenReturn("AAA234", "BBB345");
+        when(customerOrderRepository.existsByPublicCode(any())).thenReturn(false);
+        doThrow(publicCodeViolation()).doNothing().when(customerOrderRepository).flush();
+
+        orderService.createOrder(request(item(1L, CocktailSize.S)));
+
+        // Two attempts persisted an order object; only the second one commits.
+        verify(customerOrderRepository, times(2)).save(orderCaptor.capture());
+        assertThat(orderCaptor.getAllValues()).hasSize(2);
+        assertThat(orderCaptor.getValue().getPublicCode()).isEqualTo("BBB345");
+    }
+
+    @Test
+    void throwsControlledErrorWhenInsertCollisionsExhaustRetries() {
+        when(cocktailRepository.findWithPricesById(1L)).thenReturn(Optional.of(mojito));
+        when(publicCodeGenerator.generate()).thenReturn("AAA234");
+        when(customerOrderRepository.existsByPublicCode(any())).thenReturn(false);
+        doThrow(publicCodeViolation()).when(customerOrderRepository).flush();
+
+        assertThatThrownBy(() -> orderService.createOrder(request(item(1L, CocktailSize.S))))
+                .isInstanceOf(PublicCodeGenerationException.class);
+
+        verify(customerOrderRepository, times(OrderService.MAX_PUBLIC_CODE_ATTEMPTS)).save(any());
+    }
+
+    @Test
+    void doesNotRetryUnrelatedDataIntegrityViolation() {
+        when(cocktailRepository.findWithPricesById(1L)).thenReturn(Optional.of(mojito));
+        when(publicCodeGenerator.generate()).thenReturn("AAA234");
+        when(customerOrderRepository.existsByPublicCode(any())).thenReturn(false);
+        DataIntegrityViolationException unrelated = new DataIntegrityViolationException(
+                "ERROR: insert or update on table \"order_item\" violates foreign key "
+                        + "constraint \"fk_order_item_cocktail\"");
+        doThrow(unrelated).when(customerOrderRepository).flush();
+
+        assertThatThrownBy(() -> orderService.createOrder(request(item(1L, CocktailSize.S))))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isSameAs(unrelated);
+
+        // No retry: a single attempt was made.
+        verify(customerOrderRepository, times(1)).save(any());
+    }
+
+    @Test
     void rejectsMissingCocktail() {
         when(cocktailRepository.findWithPricesById(99L)).thenReturn(Optional.empty());
 
@@ -163,6 +221,13 @@ class OrderServiceTest {
     }
 
     // --- helpers -----------------------------------------------------------
+
+    /** A data-integrity violation that mentions the public_code unique constraint. */
+    private static DataIntegrityViolationException publicCodeViolation() {
+        return new DataIntegrityViolationException(
+                "could not execute statement [ERROR: duplicate key value violates unique "
+                        + "constraint \"customer_order_public_code_key\"]");
+    }
 
     private static CreateOrderRequest request(CreateOrderItemRequest... items) {
         return new CreateOrderRequest(List.of(items), 12, PaymentMethod.CARD_IN_APP);

@@ -35,6 +35,7 @@ CREATE UNIQUE INDEX uk_app_user_username_lower
 CREATE TABLE category (
     id            BIGSERIAL PRIMARY KEY,
     name          VARCHAR(100) NOT NULL,
+    description   VARCHAR(255),                 -- V4
     display_order INTEGER      NOT NULL DEFAULT 0,
     active        BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -67,6 +68,7 @@ CREATE TABLE cocktail (
     category_id BIGINT       NOT NULL,
     name        VARCHAR(150) NOT NULL,
     description TEXT         NOT NULL,
+    short_description VARCHAR(255),              -- V4
     image_url   VARCHAR(500),
     active      BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -123,12 +125,18 @@ CREATE TABLE customer_order (
     public_code  VARCHAR(8)    NOT NULL UNIQUE,
     status       VARCHAR(20)   NOT NULL DEFAULT 'ORDERED',
     total_amount NUMERIC(10,2) NOT NULL,
+    table_number INTEGER       NOT NULL,        -- V4
+    payment_method VARCHAR(30) NOT NULL,        -- V4
     created_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMPTZ,
     CONSTRAINT ck_customer_order_status
         CHECK (status IN ('ORDERED', 'IN_PROGRESS', 'COMPLETED')),
     CONSTRAINT ck_customer_order_total CHECK (total_amount >= 0),
+    CONSTRAINT ck_customer_order_table_number CHECK (table_number BETWEEN 1 AND 999),  -- V4
+    CONSTRAINT ck_customer_order_payment_method CHECK (payment_method IN (            -- V4
+        'CASH_AT_COUNTER', 'CARD_AT_COUNTER', 'CARD_IN_APP', 'APPLE_PAY', 'GOOGLE_PAY'
+    )),
     CONSTRAINT ck_customer_order_completed_at CHECK (
         (status = 'COMPLETED' AND completed_at IS NOT NULL)
         OR
@@ -317,17 +325,18 @@ SELECT setval(pg_get_serial_sequence('ingredient', 'id'), (SELECT MAX(id) FROM i
 SELECT setval(pg_get_serial_sequence('cocktail', 'id'),   (SELECT MAX(id) FROM cocktail));
 
 -- ==========================================================================
--- Demo barmaker (V3)
+-- Demo barmaker (V3 + V5 password rotation)
 -- ==========================================================================
 -- One local demo barmaker account. The password is stored as a BCrypt hash
--- (strength 10); the plaintext password is NEVER stored.
+-- (strength 10); the plaintext password is NEVER stored. The hash below is the
+-- V5 value (password rotated to "barmaker-test").
 -- Demo credentials (DEVELOPMENT / DEMO ONLY — do not use in production):
 --   username: barmaker
---   password: barapp-demo-2024
+--   password: barmaker-test
 INSERT INTO app_user (username, password_hash, display_name, role, active)
 VALUES (
     'barmaker',
-    '$2a$10$w3RNYPGZjHibEiVhIhh2z./crcQfr2imdJb/Rtj68pTXaw/JBt82W',
+    '$2a$10$.J1SmmZCYSJBflqdFRnQieLCiqpw.kK6rHVpJ96IOqWDm1fmaylrm',
     'Barman principal',
     'BARMAKER',
     TRUE

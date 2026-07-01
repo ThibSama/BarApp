@@ -314,6 +314,37 @@ class SecurityIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void barCategoriesWithoutTokenReturns401() {
+        ResponseEntity<Map> response = restTemplate.getForEntity(
+                url("/api/bar/categories"), Map.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void barCatalogueWithValidBarmakerTokenSucceeds() {
+        String token = loginAndGetToken(DEMO_USERNAME, DEMO_PASSWORD);
+        // Management list endpoints return a JSON array, so read them as String.
+        assertThat(getListWithToken("/api/bar/categories", token).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(getListWithToken("/api/bar/cocktails", token).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(getListWithToken("/api/bar/ingredients", token).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void barIngredientsWithoutTokenReturns401() {
+        ResponseEntity<Map> response = restTemplate.getForEntity(
+                url("/api/bar/ingredients"), Map.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    private ResponseEntity<String> getListWithToken(String path, String token) {
+        return restTemplate.exchange(url(path), HttpMethod.GET,
+                new HttpEntity<>(authHeaders(token)), String.class);
+    }
+
+    @Test
     void insufficientRoleReturns403() {
         // With the active-user converter, the role is always loaded from the
         // database (BARMAKER only in the MVP). The 403 access-denied path is

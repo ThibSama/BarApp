@@ -33,6 +33,30 @@ public class Ingredient {
     protected Ingredient() {
     }
 
+    /** Factory for a brand-new (active) ingredient reused across cocktails. */
+    public static Ingredient create(String name) {
+        Ingredient ingredient = new Ingredient();
+        ingredient.name = name;
+        ingredient.active = true;
+        return ingredient;
+    }
+
+    /** Reactivates a previously deactivated ingredient when it is reused. */
+    public void activate() {
+        this.active = true;
+    }
+
+    /** Applies an edit from the management API (rename + activation state). */
+    public void update(String name, boolean active) {
+        this.name = name;
+        this.active = active;
+    }
+
+    /** Logical deletion used by the management API; the row is never removed. */
+    public void deactivate() {
+        this.active = false;
+    }
+
     public Long getId() {
         return id;
     }

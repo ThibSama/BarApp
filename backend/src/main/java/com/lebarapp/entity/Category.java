@@ -21,6 +21,10 @@ public class Category {
     @Column(nullable = false, length = 100)
     private String name;
 
+    // Optional short text shown/edited in the barmaker UI (mapped from V4).
+    @Column(length = 255)
+    private String description;
+
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
 
@@ -36,12 +40,45 @@ public class Category {
     protected Category() {
     }
 
+    /**
+     * Factory for a new category. Callers are responsible for trimming/validating
+     * the supplied values; the entity only guards its required invariants.
+     */
+    public static Category create(String name, String description, int displayOrder, boolean active) {
+        Category category = new Category();
+        category.name = name;
+        category.description = description;
+        category.displayOrder = displayOrder;
+        category.active = active;
+        return category;
+    }
+
+    /** Applies an edit from the management API (controlled mutation). */
+    public void update(String name, String description, int displayOrder, boolean active) {
+        this.name = name;
+        this.description = description;
+        this.displayOrder = displayOrder;
+        this.active = active;
+    }
+
+    public void activate() {
+        this.active = true;
+    }
+
+    public void deactivate() {
+        this.active = false;
+    }
+
     public Long getId() {
         return id;
     }
 
     public String getName() {
         return name;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     public int getDisplayOrder() {

@@ -10,8 +10,21 @@ type Tab = "active" | "completed";
 const store = useBarmakerOrderStore();
 const tab = ref<Tab>("active");
 
+// Deterministic queue priority: ORDERED before IN_PROGRESS, then oldest first
+// inside each group. Applied client-side so the queue order never depends on
+// backend serialization.
+const STATUS_PRIORITY: Record<string, number> = { ORDERED: 0, IN_PROGRESS: 1, COMPLETED: 2 };
+
+const activeSorted = computed(() =>
+  [...store.activeSummaries].sort(
+    (a, b) =>
+      (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9) ||
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  ),
+);
+
 const orders = computed(() =>
-  tab.value === "active" ? store.activeSummaries : store.completedSummaries,
+  tab.value === "active" ? activeSorted.value : store.completedSummaries,
 );
 const loading = computed(() =>
   tab.value === "active" ? store.loadingActive : store.loadingCompleted,

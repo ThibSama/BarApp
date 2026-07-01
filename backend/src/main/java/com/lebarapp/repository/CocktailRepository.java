@@ -38,4 +38,38 @@ public interface CocktailRepository extends JpaRepository<Cocktail, Long> {
             "prices"
     })
     List<Cocktail> findActiveForMenu();
+
+    /**
+     * Management listing: every cocktail (active and inactive, regardless of its
+     * category's state), with category, ingredient associations and prices
+     * eagerly fetched in a single round trip. {@code Set} collections keep this
+     * free of {@code MultipleBagFetchException}; ordering is applied in the
+     * service/mapping layer.
+     */
+    @Query("select c from Cocktail c")
+    @EntityGraph(attributePaths = {
+            "category",
+            "ingredients",
+            "ingredients.ingredient",
+            "prices"
+    })
+    List<Cocktail> findAllForManagement();
+
+    /**
+     * Loads a single cocktail with category, ingredient associations and prices
+     * for the management detail view (active and inactive alike).
+     */
+    @EntityGraph(attributePaths = {
+            "category",
+            "ingredients",
+            "ingredients.ingredient",
+            "prices"
+    })
+    Optional<Cocktail> findWithDetailById(Long id);
+
+    /** Case-insensitive uniqueness of a cocktail name within its category. */
+    boolean existsByCategoryIdAndNameIgnoreCase(Long categoryId, String name);
+
+    /** Same as above, excluding the edited cocktail (used on update). */
+    boolean existsByCategoryIdAndNameIgnoreCaseAndIdNot(Long categoryId, String name, Long id);
 }

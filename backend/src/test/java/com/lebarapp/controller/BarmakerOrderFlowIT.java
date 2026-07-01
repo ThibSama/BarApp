@@ -75,16 +75,21 @@ class BarmakerOrderFlowIT extends AbstractPostgresIntegrationTest {
         assertThat(((Number) queued.get("itemCount")).intValue()).isEqualTo(2);
         assertThat(((Number) queued.get("completedItemCount")).intValue()).isZero();
 
-        // 3. Detail is retrievable and items are sorted by sequence number.
+        // 3. Detail is retrievable, items sorted, table + payment method exposed.
         ResponseEntity<Map> detail = getWithToken("/api/bar/orders/" + orderId, token);
         assertThat(detail.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(itemsOf(detail.getBody())).hasSize(2);
+        assertThat(((Number) detail.getBody().get("tableNumber")).intValue()).isEqualTo(7);
+        assertThat(detail.getBody().get("paymentMethod")).isEqualTo("CARD_IN_APP");
 
-        // 4. First progression moves the parent order to IN_PROGRESS.
+        // 4. First progression moves the parent order to IN_PROGRESS and the
+        //    table number + payment method are preserved on the refreshed order.
         ResponseEntity<Map> afterFirstStep = patchWithToken(
                 "/api/bar/order-items/" + firstItemId + "/next-step", token);
         assertThat(afterFirstStep.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(afterFirstStep.getBody().get("status")).isEqualTo("IN_PROGRESS");
+        assertThat(((Number) afterFirstStep.getBody().get("tableNumber")).intValue()).isEqualTo(7);
+        assertThat(afterFirstStep.getBody().get("paymentMethod")).isEqualTo("CARD_IN_APP");
         assertThat(findInQueue(token, false, orderId).get("status")).isEqualTo("IN_PROGRESS");
 
         // 5. Complete every item; the parent order becomes COMPLETED.

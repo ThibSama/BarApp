@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { PaymentMethod } from '@/types/domain';
+import type { ApiPaymentMethod } from '@/types/api';
 import { paymentGroupLabels, paymentMethodOptions } from '@/utils/payments';
 
-const selectedPaymentMethod = defineModel<PaymentMethod | ''>({ required: true });
+const selectedPaymentMethod = defineModel<ApiPaymentMethod | ''>({ required: true });
 const groups = ['counter', 'application'] as const;
 </script>
 
