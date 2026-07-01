@@ -12,6 +12,8 @@ export function describeAdminError(err: unknown): string {
         return 'Un cocktail portant ce nom existe déjà dans cette catégorie.';
       case 'INGREDIENT_ALREADY_EXISTS':
         return 'Un ingrédient portant ce nom existe déjà.';
+      case 'USERNAME_ALREADY_EXISTS':
+        return 'Ce nom d’utilisateur est déjà utilisé.';
       case 'CATEGORY_INACTIVE':
         return 'Impossible de rattacher un cocktail à une catégorie inactive.';
       case 'CATEGORY_NOT_FOUND':

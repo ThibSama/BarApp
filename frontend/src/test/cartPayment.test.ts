@@ -18,9 +18,9 @@ function makeRouter() {
     history: createWebHistory(),
     routes: [
       { path: '/', redirect: '/client/menu' },
-      { path: '/client/menu', component: { template: '<div />' } },
-      { path: '/client/panier', component: CartView },
-      { path: '/client/confirmation/:orderId', component: { template: '<div>Confirmation</div>' } },
+      { path: '/client/menu', name: 'client-menu', component: { template: '<div />' } },
+      { path: '/client/panier', name: 'client-cart', component: CartView },
+      { path: '/client/confirmation/:orderId', name: 'client-order-confirmation', component: { template: '<div>Confirmation</div>' } },
     ],
   });
 }
@@ -42,16 +42,23 @@ describe('checkout flow', () => {
     vi.mocked(api.createOrder).mockReset();
   });
 
-  it('hides payment until a valid table number and rejects 0 and 1000', async () => {
+  it('hides payment until a valid table number and enforces the 1..25 range', async () => {
     await setup();
     expect(screen.queryByText('Choisir le mode de paiement')).toBeNull();
-    const table = screen.getByPlaceholderText('Ex. 12');
+    const table = screen.getByPlaceholderText('Ex. 12') as HTMLInputElement;
+
+    // Placeholder and HTML max attribute reflect the 1..25 rule.
+    expect(table.placeholder).toBe('Ex. 12');
+    expect(table.getAttribute('max')).toBe('25');
+
+    // Initial checkout warning is the exact required copy.
+    expect(screen.getByText('Veuillez saisir votre numéro de table')).toBeTruthy();
 
     await fireEvent.update(table, '0');
     expect(screen.queryByText('Choisir le mode de paiement')).toBeNull();
-    await fireEvent.update(table, '1000');
+    await fireEvent.update(table, '26');
     expect(screen.queryByText('Choisir le mode de paiement')).toBeNull();
-    await fireEvent.update(table, '12');
+    await fireEvent.update(table, '25');
     expect(screen.getByText('Choisir le mode de paiement')).toBeTruthy();
   });
 

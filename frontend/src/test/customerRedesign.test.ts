@@ -15,10 +15,10 @@ function createTestRouter(path = '/client/menu') {
   const router = createRouter({
     history: createWebHistory(),
     routes: [
-      { path: '/client/menu', component: MenuView },
-      { path: '/client/cocktails/:id', component: CocktailDetailsView },
-      { path: '/client/panier', component: CartView },
-      { path: '/client/confirmation/:orderId', component: { template: '<div>Confirmation</div>' } },
+      { path: '/client/menu', name: 'client-menu', component: MenuView },
+      { path: '/client/cocktails/:id', name: 'client-cocktail-details', component: CocktailDetailsView },
+      { path: '/client/panier', name: 'client-cart', component: CartView },
+      { path: '/client/confirmation/:orderId', name: 'client-order-confirmation', component: { template: '<div>Confirmation</div>' } },
     ],
   });
   return router.push(path).then(() => router);

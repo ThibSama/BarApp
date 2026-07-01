@@ -81,9 +81,28 @@ class MenuServiceIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void nullImageUrlIsSupported() {
-        assertThat(cocktail("Classiques", "Mojito").imageUrl()).isNull();
-        assertThat(cocktail("Classiques", "Cosmopolitan").imageUrl()).isNotBlank();
+    void activeDemoCocktailsExposeLocalImagePaths() {
+        List<MenuCocktailDto> all = menuService.getMenu().categories().stream()
+                .flatMap(c -> c.cocktails().stream())
+                .toList();
+
+        // Every active demo cocktail now has a local image under /images/cocktails/.
+        assertThat(all).extracting(MenuCocktailDto::imageUrl)
+                .allSatisfy(url -> {
+                    assertThat(url).isNotNull();
+                    assertThat(url).startsWith("/images/cocktails/");
+                });
+        // No cocktail exposes the old fake external URL.
+        assertThat(all).noneMatch(c -> c.imageUrl() != null && c.imageUrl().contains("example.com"));
+
+        // The inactive cocktail (and its inactive category) stays filtered out.
+        assertThat(all).extracting(MenuCocktailDto::name).doesNotContain("Cocktail retiré");
+
+        // Deterministic mapping sanity for two representative cocktails.
+        assertThat(cocktail("Classiques", "Mojito").imageUrl())
+                .isEqualTo("/images/cocktails/mojito.webp");
+        assertThat(cocktail("Classiques", "Cosmopolitan").imageUrl())
+                .isEqualTo("/images/cocktails/cosmopolitan.webp");
     }
 
     private MenuCategoryDto category(String name) {

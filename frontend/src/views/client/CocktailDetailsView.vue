@@ -60,7 +60,7 @@ function addToCart(): void {
 
 <template>
   <section v-if="cocktail" class="details-page">
-    <RouterLink class="back-link" to="/client/menu"><AppIcon name="arrow-left" :size="18" /> Retour à la carte</RouterLink>
+    <RouterLink class="back-link" :to="{ name: 'client-menu' }"><AppIcon name="arrow-left" :size="18" /> Retour à la carte</RouterLink>
     <div class="details-layout">
       <figure class="details-media">
         <CocktailImage class="details-image" :image-url="cocktail.imageUrl ?? undefined" :cocktail-name="cocktail.name" />
@@ -70,13 +70,13 @@ function addToCart(): void {
         <p class="description">{{ cocktail.description }}</p>
         <section v-if="cocktail.ingredients.length" class="card compact-card"><h2>Ingrédients</h2><ul class="ingredient-list"><li v-for="ingredient in cocktail.ingredients" :key="ingredient.id">{{ ingredient.name }}<small v-if="ingredient.quantityLabel"> · {{ ingredient.quantityLabel }}</small></li></ul></section>
         <fieldset class="card compact-card"><legend>Choisir une taille</legend><div class="size-options"><label v-for="size in sizeOptions" :key="size" class="size-card" :class="{ selected: selectedSize === size }"><input v-model="selectedSize" type="radio" name="size" :value="size" /> <span>{{ size }}</span><small>{{ sizeLabel[size] }}</small><strong>{{ formatCurrency(priceForSize(cocktail.prices, size) ?? 0) }}</strong></label></div></fieldset>
-        <div class="purchase-card card"><div><p class="eyebrow">Total</p><strong class="live-price">{{ formatCurrency(currentPrice) }}</strong></div><QuantitySelector v-model="quantity" label="Quantité du cocktail" /><button class="button" type="button" :disabled="!sizeOptions.length" @click="addToCart">Ajouter au panier</button><button class="button secondary" type="button" @click="router.push('/client/panier')">Aller au panier</button></div>
+        <div class="purchase-card card"><div><p class="eyebrow">Total</p><strong class="live-price">{{ formatCurrency(currentPrice) }}</strong></div><QuantitySelector v-model="quantity" label="Quantité du cocktail" /><button class="button" type="button" :disabled="!sizeOptions.length" @click="addToCart">Ajouter au panier</button><button class="button secondary" type="button" @click="router.push({ name: 'client-cart' })">Aller au panier</button></div>
         <SuccessToast :message="toastMessage" :visible="toastVisible" :toast-key="toastId" />
       </div>
     </div>
   </section>
   <section v-else-if="menu.loading && !menu.loaded" class="card empty-state" aria-busy="true"><h1>Chargement du cocktail…</h1></section>
-  <section v-else class="card empty-state"><h1>Cocktail introuvable</h1><RouterLink class="button" to="/client/menu">Retour à la carte</RouterLink></section>
+  <section v-else class="card empty-state"><h1>Cocktail introuvable</h1><RouterLink class="button" :to="{ name: 'client-menu' }">Retour à la carte</RouterLink></section>
 </template>
 
 <style scoped>

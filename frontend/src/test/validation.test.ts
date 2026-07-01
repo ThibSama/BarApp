@@ -12,12 +12,12 @@ describe('validation utilities', () => {
     expect(validatePositivePrice(6.5, 'Prix S')).toBe('');
   });
 
-  it('enforces the backend table-number rule (1..999 integer)', () => {
-    expect(validateTableNumber(null)).toBe('Le numéro de table est obligatoire.');
-    expect(validateTableNumber(0)).toBe('Le numéro de table doit être compris entre 1 et 999.');
-    expect(validateTableNumber(1000)).toBe('Le numéro de table doit être compris entre 1 et 999.');
-    expect(validateTableNumber(12.5)).toBe('Le numéro de table doit être compris entre 1 et 999.');
+  it('enforces the backend table-number rule (1..25 integer)', () => {
+    expect(validateTableNumber(null)).toBe('Veuillez saisir votre numéro de table');
+    expect(validateTableNumber(0)).toBe('Le numéro de table doit être compris entre 1 et 25.');
+    expect(validateTableNumber(26)).toBe('Le numéro de table doit être compris entre 1 et 25.');
+    expect(validateTableNumber(12.5)).toBe('Le numéro de table doit être compris entre 1 et 25.');
     expect(validateTableNumber(1)).toBe('');
-    expect(validateTableNumber(999)).toBe('');
+    expect(validateTableNumber(25)).toBe('');
   });
 });

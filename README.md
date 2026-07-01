@@ -107,6 +107,67 @@ L'API est joignable de deux manières :
 - **via le proxy Nginx du frontend** (même origine, recommandé pour le
   navigateur) : `http://localhost:8081/api/menu` → transmis à `api:8080`.
 
+### URLs propres par rôle (sur la machine hôte Docker)
+
+Le **même conteneur frontend** (un seul bundle Vue, un seul Nginx) répond aussi
+sur deux noms d'hôtes de rôle en boucle locale, exposés sur le **port 80** :
+
+| URL propre                         | Rôle                                   |
+|------------------------------------|----------------------------------------|
+| <http://client.localhost>          | Interface **client** (carte à `/`)     |
+| <http://barmaker.localhost>        | Interface **barmaker** (→ `/login` ou `/orders`) |
+
+Routes canoniques correspondantes :
+
+- Client : `/`, `/cocktails/:id`, `/panier`, `/confirmation/:orderId`, `/suivi`,
+  `/suivi/:orderId`.
+- Barmaker : `/login`, `/orders`, `/orders/:orderId`, `/categories`, `/cocktails`.
+  Ouvrir `http://barmaker.localhost` **redirige** vers `/login` sans session
+  valide, ou vers `/orders` si le barmaker est authentifié.
+
+L'application Vue choisit la disposition des routes (client / barmaker / legacy)
+à partir de `window.location.hostname` ; les appels API passent **toujours** par
+le proxy même origine `/api`. Les trois modes d'accès coexistent :
+
+| Accès                    | Exemple                                   | Quand                          |
+|--------------------------|-------------------------------------------|--------------------------------|
+| **Propre (hôte Docker)** | `http://client.localhost` / `http://barmaker.localhost` | Démo locale sur la machine hôte |
+| **Legacy**               | `http://localhost:8081/client/menu` , `http://localhost:8081/bar/login` | Compatibilité, scripts, habitudes |
+| **LAN / 2 appareils**    | `http://<IP_LAN>:8081/client/menu` , `http://<IP_LAN>:8081/bar/login` | Démonstration examen à deux appareils |
+
+> ⚠️ **Le port 80 doit être libre** pour les URLs sans port. S'il est déjà pris
+> (Apache/Nginx/LAMP de l'hôte, autre conteneur), le mapping `80:80` échoue au
+> démarrage. Identifier l'occupant :
+> ```bash
+> sudo ss -ltnp '( sport = :80 )'      # processus qui écoute sur :80
+> curl -sI http://127.0.0.1/ | grep -i server
+> ```
+> Puis, au choix : libérer le port 80 (arrêter le service hôte manuellement),
+> **ou** changer le port propre via `.env` avec un port **libre et différent de
+> `FRONTEND_PORT`** (les deux ne doivent jamais être égaux, sinon Compose échoue
+> sur un double mapping d'hôte), par exemple `FRONTEND_HTTP_PORT=8082` et accéder
+> à `http://client.localhost:8082`.
+>
+> 🔁 `client.localhost` et `barmaker.localhost` se résolvent en **boucle locale
+> (127.0.0.1) du terminal qui ouvre l'URL** : aucune entrée `/etc/hosts` n'est
+> normalement nécessaire (les navigateurs résolvent `*.localhost` en loopback),
+> mais ils sont **inutilisables depuis un second appareil physique**. Pour la
+> démo à deux appareils, on garde l'accès **LAN sur le port 8081**.
+
+Surcharger les deux ports hôtes du frontend via `.env` :
+
+```bash
+FRONTEND_HTTP_PORT=80     # URLs propres (client.localhost / barmaker.localhost)
+FRONTEND_PORT=8081        # port legacy + LAN (inchangé)
+```
+
+Repli si le port 80 est indisponible — les deux ports doivent **différer** :
+
+```bash
+FRONTEND_HTTP_PORT=8082   # http://client.localhost:8082 / http://barmaker.localhost:8082
+FRONTEND_PORT=8081        # http://localhost:8081/** et http://<IP_LAN>:8081/** (inchangé)
+```
+
 ### Vérifier la santé et les logs
 
 ```bash
@@ -148,6 +209,12 @@ besoin que du frontend : les appels `/api` sont relayés côté serveur vers `ap
 par Nginx (aucun nom interne Docker n'est exposé au navigateur). Pensez à ajouter
 l'origine LAN à `APP_CORS_ALLOWED_ORIGINS` si vous appelez l'API en direct depuis
 ce navigateur.
+
+> ⚠️ **N'utilisez pas** `client.localhost` / `barmaker.localhost` depuis un
+> second appareil : ces noms se résolvent en boucle locale **de l'appareil qui
+> les ouvre**, pas vers la machine hôte Docker. Pour deux appareils, gardez
+> l'accès par **IP LAN sur le port 8081** (`http://<IP_LAN>:8081/client/menu`,
+> `http://<IP_LAN>:8081/bar/login`). Le port 8081 legacy n'est jamais supprimé.
 
 > ✅ **Les écrans Vue consomment réellement l'API** via le proxy `/api` :
 > carte client, panier (IDs/tailles/prix réels), saisie obligatoire du numéro de
@@ -309,7 +376,7 @@ génère alors un `OrderItem` distinct.
 - `cocktailId` obligatoire et positif ;
 - `size` obligatoire, valeurs acceptées `S`, `M`, `L` uniquement (toute autre
   valeur d'énumération est rejetée comme requête mal formée) ;
-- `tableNumber` obligatoire, entier **1 à 999** ;
+- `tableNumber` obligatoire, entier **1 à 25** ;
 - `paymentMethod` obligatoire, valeurs acceptées `CASH_AT_COUNTER`,
   `CARD_AT_COUNTER`, `CARD_IN_APP`, `APPLE_PAY`, `GOOGLE_PAY` (ajouté par la
   migration **V4**, voir plus bas).
@@ -447,17 +514,43 @@ machine-lisible ; les messages utilisateur sont en français.
 
 ---
 
-## Authentification (barmaker)
+## Authentification et rôles (personnel du bar)
 
-L'API barmaker est protégée par **JWT** (Spring Security, resource server
-stateless). Les routes `/api/bar/**` exigent le rôle `ROLE_BARMAKER` ; `GET
-/api/menu`, `POST /api/orders` et `GET /api/orders/{id}` restent publics.
+L'API du personnel est protégée par **JWT** (Spring Security, resource server
+stateless). Deux rôles authentifiés existent, et deux seulement :
 
-**Identifiants de démonstration** (développement / démo uniquement, créés par les
-migrations V3/V5 — jamais en production) :
+- `BARMAKER` — utilise l'espace barmaker (commandes, catalogue) ;
+- `MANAGER` — barmaker **élevé** : il conserve toutes les capacités barmaker et
+  peut en plus gérer les comptes du personnel.
 
-- `username` : `barmaker`
-- `password` : `barmaker-test`
+Ce n'est pas une hiérarchie de rôles Spring : chaque espace liste explicitement
+les rôles autorisés, si bien qu'un manager n'est jamais privé de l'accès aux
+commandes ou au catalogue.
+
+### Matrice d'accès
+
+| Ressource | Anonyme | `BARMAKER` | `MANAGER` |
+|-----------|:-------:|:----------:|:---------:|
+| Carte et commandes client (`GET /api/menu`, `POST`/`GET /api/orders`) | ✅ | ✅ | ✅ |
+| `/api/bar/orders/**` | ❌ `401` | ✅ | ✅ |
+| `/api/bar/categories/**` | ❌ `401` | ✅ | ✅ |
+| `/api/bar/cocktails/**` | ❌ `401` | ✅ | ✅ |
+| `/api/bar/users/**` (gestion du personnel) | ❌ `401` | ⛔ `403` | ✅ |
+| Route frontend `/bar/users` | ❌ → login | ⛔ → `/bar/orders` | ✅ |
+
+Le matcher manager (`/api/bar/users/**` → `hasRole("MANAGER")`) est déclaré
+**avant** le matcher barmaker large (`/api/bar/**` → `hasAnyRole("BARMAKER",
+"MANAGER")`). Les autorités sont **rechargées depuis PostgreSQL** à chaque
+requête : une revendication `role` falsifiée dans le JWT ne peut pas élever les
+privilèges.
+
+**Identifiants de démonstration** (développement / démo uniquement — jamais en
+production ; mots de passe stockés en hash BCrypt, jamais en clair) :
+
+| Rôle | `username` | `password` | Créé par |
+|------|------------|------------|----------|
+| `BARMAKER` | `barmaker` | `barmaker-test` | migrations V3 / V5 |
+| `MANAGER`  | `manager`  | `manager-test`  | migration V10 |
 
 ```bash
 # 1. Obtenir un jeton
@@ -472,7 +565,9 @@ curl -s http://localhost:8080/api/bar/categories \
 ```
 
 Un appel non authentifié à `/api/bar/**` renvoie `401 AUTHENTICATION_REQUIRED` ;
-un jeton valide sans le rôle requis renvoie `403 ACCESS_DENIED`.
+un jeton valide sans le rôle requis renvoie `403 ACCESS_DENIED`. `GET /api/auth/me`
+renvoie le rôle **actuel** rechargé depuis la base, et aucun endpoint n'expose
+jamais le hash du mot de passe.
 
 ---
 
@@ -535,7 +630,6 @@ Requête (création/mise à jour) :
   "categoryId": 1,
   "name": "Mojito",
   "description": "Cocktail frais à base de rhum.",
-  "shortDescription": "Rhum, menthe et citron vert.",
   "imageUrl": "https://example.test/mojito.jpg",
   "active": true,
   "ingredients": [
@@ -556,8 +650,8 @@ Règles principales :
   `404 CATEGORY_NOT_FOUND` ou `409 CATEGORY_INACTIVE`) ;
 - `name` obligatoire, trimmé, ≤ 150, **unique (insensible à la casse) dans la
   catégorie** ; le même nom est autorisé dans une autre catégorie ;
-- `description` obligatoire ; `shortDescription` optionnelle (≤ 255, colonne V4
-  `short_description`) ; `imageUrl` optionnelle ;
+- `description` **obligatoire** (unique description textuelle du cocktail) ;
+  `imageUrl` optionnelle ;
 - **au moins un ingrédient** ; noms trimmés, **uniques (insensible à la casse)
   dans la requête** ; `quantityLabel` optionnel ; `displayOrder` ≥ 0 ; les
   ingrédients sont renvoyés triés par `displayOrder` ;
@@ -572,8 +666,8 @@ sont **réécrits en place** (un seul prix actif par taille). Toutes ces opérat
 ont lieu dans **une seule transaction**.
 
 La réponse de gestion contient l'`id`, `categoryId`, `categoryName`, `name`,
-`description`, `shortDescription`, `imageUrl`, `active`, les ingrédients ordonnés
-et les prix S/M/L — soit toutes les données nécessaires au futur formulaire Vue.
+`description`, `imageUrl`, `active`, les ingrédients ordonnés
+et les prix S/M/L — soit toutes les données nécessaires au formulaire Vue.
 
 > `GET /api/menu` (public) continue de n'exposer **que** les catégories,
 > cocktails, ingrédients et prix **actifs** : son comportement est inchangé.
@@ -622,6 +716,59 @@ lorsqu'il est réutilisé.
 
 ---
 
+## Gestion du personnel (manager uniquement)
+
+Routes **réservées au rôle `MANAGER`** (`/api/bar/users/**`). Un barmaker
+authentifié reçoit `403 ACCESS_DENIED` ; un appel anonyme reçoit `401`. Le hash
+du mot de passe et toute donnée interne ne sont **jamais** exposés.
+
+| Méthode | Route | Succès | Erreurs |
+|---------|-------|--------|---------|
+| `GET`   | `/api/bar/users` | `200` (tout le personnel, tri stable) | `401`, `403` |
+| `POST`  | `/api/bar/users` | `201` + `Location` | `400`, `403`, `409 USERNAME_ALREADY_EXISTS` |
+
+Requête de création (le rôle **n'est pas** dans le contrat — il est fixé côté
+serveur) :
+
+```json
+{ "displayName": "Alice Martin", "username": "alice", "password": "temporary-password" }
+```
+
+Réponse (`UserAdminResponse`, jamais de mot de passe ni de hash) :
+
+```json
+{ "id": 3, "username": "alice", "displayName": "Alice Martin",
+  "role": "BARMAKER", "active": true, "createdAt": "2026-07-01T12:00:00Z" }
+```
+
+Règles de validation :
+
+- `displayName` : obligatoire, **trimmé**, ≤ 120 caractères ;
+- `username` : obligatoire, **trimmé**, 3–80 caractères, motif `A-Za-z0-9._-`,
+  **unique insensible à la casse** (pré-vérification + index unique fonctionnel
+  en base contre la concurrence) ;
+- `password` : obligatoire, **jamais trimmé**, 8–72 caractères (limite pratique
+  BCrypt), encodé avec le `PasswordEncoder` BCrypt (force 10) du projet — seul le
+  hash est stocké, jamais journalisé ni renvoyé.
+
+**Tout compte créé via cette API reçoit obligatoirement le rôle `BARMAKER` et
+`active = true`.** La requête n'accepte ni `role` ni `active` (tout champ
+supplémentaire est ignoré : envoyer `"role":"MANAGER"` ne crée jamais de
+manager). Créer un manager, éditer/supprimer/désactiver/réactiver un compte,
+réinitialiser ou changer un mot de passe, et modifier son propre profil sont
+**hors périmètre** de cette version. Un doublon de nom d'utilisateur — quelle
+que soit la casse (`Alice`, `alice`, `ALICE`) — renvoie le même `409`
+« Ce nom d'utilisateur est déjà utilisé. », sans jamais exposer de détail SQL ni
+le nom de la contrainte.
+
+Côté frontend, la page **« Équipe »** (`/bar/users`, entrée de navigation
+visible uniquement pour un manager) liste le personnel (nom affiché, nom
+d'utilisateur, rôle, statut actif) et ouvre une modale de création. La garde de
+routeur redirige un barmaker régulier vers `/bar/orders` et un visiteur anonyme
+vers l'écran de connexion, y compris sur saisie directe d'URL ou rafraîchissement.
+
+---
+
 ## Migrations de base de données
 
 - Les migrations Flyway vivent dans
@@ -632,13 +779,38 @@ lorsqu'il est réutilisé.
   - `V4__add_order_table_payment_and_catalog_descriptions.sql` — ajout (additif,
     sans perte de données) de `customer_order.table_number` (1..999),
     `customer_order.payment_method` (set contraint), `category.description` et
-    `cocktail.short_description`
+    `cocktail.short_description` (cette dernière colonne est **retirée par V8**,
+    voir plus bas — elle ne fait plus partie du schéma courant)
   - `V5__update_demo_barmaker_password.sql` — rotation du mot de passe de démo
     vers `barmaker-test` (idempotent : `UPDATE` puis `INSERT … ON CONFLICT`)
-- **Aucune migration appliquée (V1→V5) n'est modifiée.** Cette passe n'a pas
-  nécessité de nouvelle migration : les colonnes V4 (`description`,
-  `short_description`) couvrent déjà les besoins de gestion du catalogue, donc
-  **pas de V6**.
+  - `V6__restrict_order_table_number_to_25.sql` — resserre la plage du numéro de
+    table de **1..999** à **1..25** : remplace la contrainte
+    `ck_customer_order_table_number` (jamais de modification de V4). Ne réécrit ni
+    ne supprime aucune donnée ; à déployer sur une base dont les lignes existantes
+    respectent déjà 1..25 (auditer `customer_order` au préalable).
+  - `V7__use_local_demo_cocktail_images.sql` — remplace les URLs d'images
+    temporaires/absentes des **5 cocktails de démo actifs** (ids 1..5) par des
+    photos libres hébergées **localement** sous `/images/cocktails/*.webp`
+    (prédicats déterministes `id` + `name`, cocktail inactif id 6 non touché,
+    bloc de vérification des 5 lignes). Données uniquement, aucune colonne ajoutée.
+  - `V8__remove_cocktail_short_description.sql` — supprime la colonne redondante
+    `cocktail.short_description` (`DROP COLUMN` strict, sans `IF EXISTS`). Le
+    cocktail ne conserve qu'**une seule description** (`description`, obligatoire).
+    Les valeurs stockées uniquement dans `short_description` sont abandonnées
+    volontairement (jamais fusionnées dans `description`) ; aucune ligne, aucun
+    nom, image, ingrédient, prix ni catégorie n'est modifié.
+  - `V10__add_manager_role_and_demo_account.sql` — introduit le rôle `MANAGER` :
+    remplace la contrainte `ck_app_user_role` par
+    `CHECK (role IN ('BARMAKER', 'MANAGER'))` (défaut de colonne inchangé,
+    `BARMAKER`) et insère **un** compte manager de démo (`manager` /
+    `manager-test`, hash BCrypt force 10, `INSERT … ON CONFLICT DO NOTHING`
+    idempotent). Le compte barmaker existant n'est **pas** modifié ni promu, afin
+    de tester les différences d'autorisation. (Le numéro de version suit la
+    dernière migration de catalogue en place au moment de l'ajout.)
+- **Aucune migration déjà appliquée (V1→V8) n'est modifiée** : V6, V7 et V8 sont
+  des migrations additives/correctives (plage du numéro de table, images de démo
+  locales, puis retrait de `short_description`) ; V10 n'ajoute qu'un rôle et un
+  compte de démo sans toucher au catalogue.
 - Elles sont **exécutées automatiquement au démarrage** de l'application et
   pendant les tests d'intégration. Hibernate ne crée/altère jamais le schéma
   (`ddl-auto=validate`).
@@ -651,9 +823,11 @@ lorsqu'il est réutilisé.
 
 3 catégories actives (+1 inactive), 12 ingrédients actifs (+1 inactif),
 5 cocktails actifs (+1 inactif), prix en `S/M/L` (avec un prix inactif de
-démonstration). La table `app_user` contient **un compte barmaker de
-démonstration** (`barmaker` / `barmaker-test`, mot de passe stocké en hash
-BCrypt, jamais en clair).
+démonstration). La table `app_user` contient **deux comptes de démonstration** :
+un barmaker (`barmaker` / `barmaker-test`, rôle `BARMAKER`) et un manager
+(`manager` / `manager-test`, rôle `MANAGER`). Les deux mots de passe sont stockés
+en hash BCrypt, jamais en clair ; les deux comptes sont conservés distincts pour
+pouvoir tester les différences d'autorisation.
 
 ---
 

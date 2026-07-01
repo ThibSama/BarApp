@@ -31,7 +31,7 @@ usePolling(() => {
 <template>
   <section v-if="orders.loading && !order" class="card empty-state" aria-busy="true"><h1>Chargement du suivi…</h1></section>
 
-  <section v-else-if="orders.notFound" class="card empty-state"><h1>Commande introuvable</h1><RouterLink class="button" to="/client/menu">Retour à la carte</RouterLink></section>
+  <section v-else-if="orders.notFound" class="card empty-state"><h1>Commande introuvable</h1><RouterLink class="button" :to="{ name: 'client-menu' }">Retour à la carte</RouterLink></section>
 
   <section v-else-if="!order && orders.error" class="card empty-state">
     <h1>Suivi indisponible</h1>
@@ -48,7 +48,7 @@ usePolling(() => {
     </div>
   </section>
 
-  <section v-else class="card empty-state"><h1>Aucune commande en cours</h1><p>Votre commande apparaîtra ici après sa validation.</p><RouterLink class="button" to="/client/menu">Retour à la carte</RouterLink></section>
+  <section v-else class="card empty-state"><h1>Aucune commande en cours</h1><p>Votre commande apparaîtra ici après sa validation.</p><RouterLink class="button" :to="{ name: 'client-menu' }">Retour à la carte</RouterLink></section>
 </template>
 
 <style scoped>

@@ -23,8 +23,10 @@ import java.util.List;
  * Stateless Spring Security configuration: stateless JWT resource server,
  * BCrypt password encoder, CORS with exact configured origins, and JSON error
  * handlers for authentication and authorization failures. Public client APIs
- * (menu, orders) remain unauthenticated; all {@code /api/bar/**} routes require
- * {@code ROLE_BARMAKER}.
+ * (menu, orders) remain unauthenticated; {@code /api/bar/**} routes require a
+ * signed-in staff member ({@code ROLE_BARMAKER} or {@code ROLE_MANAGER}), while
+ * the {@code /api/bar/users/**} staff-administration namespace additionally
+ * requires {@code ROLE_MANAGER}.
  *
  * <p>The {@link ActiveUserJwtAuthenticationConverter} is wired into the OAuth2
  * resource server so that every authenticated request reloads the user from
@@ -62,8 +64,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/orders/{orderId}").permitAll()
                         // --- Authenticated routes ---
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
-                        // --- Protected barmaker namespace ---
-                        .requestMatchers("/api/bar/**").hasRole("BARMAKER")
+                        // --- Manager-only staff administration (must precede the
+                        //     broader /api/bar/** matcher below) ---
+                        .requestMatchers("/api/bar/users/**").hasRole("MANAGER")
+                        // --- Protected barmaker namespace (barmakers and managers) ---
+                        .requestMatchers("/api/bar/**").hasAnyRole("BARMAKER", "MANAGER")
                         // --- Secure default ---
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

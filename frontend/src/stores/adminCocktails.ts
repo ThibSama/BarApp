@@ -90,7 +90,6 @@ export const useAdminCocktailsStore = defineStore('adminCocktails', () => {
         categoryId: cocktail.categoryId,
         name: cocktail.name,
         description: cocktail.description,
-        shortDescription: cocktail.shortDescription,
         imageUrl: cocktail.imageUrl,
         active: true,
         ingredients: cocktail.ingredients.map((ingredient) => ({

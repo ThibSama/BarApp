@@ -21,7 +21,8 @@ import java.util.List;
 
 /**
  * Protected barmaker category-management API. Every route lives under
- * {@code /api/bar/**} and therefore requires {@code ROLE_BARMAKER} (enforced by
+ * {@code /api/bar/**} and therefore requires an authenticated staff member
+ * ({@code ROLE_BARMAKER} or {@code ROLE_MANAGER}, enforced by
  * the security filter chain). {@code DELETE} performs a logical deactivation,
  * never a physical delete. Entities are never exposed; only DTOs cross this
  * boundary and validation/error mapping is centralized.

@@ -202,9 +202,22 @@ class OrderControllerTest {
     @Test
     void tableNumberOutOfRangeReturns400() throws Exception {
         mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":1000,\"paymentMethod\":\"CARD_IN_APP\"}"))
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":26,\"paymentMethod\":\"CARD_IN_APP\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void tableNumberUpperBound25IsAccepted() throws Exception {
+        UUID id = UUID.fromString("7fdbd20d-9e3a-4b7a-b807-82765d60432f");
+        OrderResponse response = new OrderResponse(id, "ABC234", OrderStatus.ORDERED,
+                new BigDecimal("10.50"), 25, PaymentMethod.CARD_IN_APP, OffsetDateTime.now(ZoneOffset.UTC), null, List.of());
+        when(orderService.createOrder(any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"cocktailId\":1,\"size\":\"M\"}],\"tableNumber\":25,\"paymentMethod\":\"CARD_IN_APP\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tableNumber").value(25));
     }
 
     @Test

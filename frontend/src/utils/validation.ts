@@ -10,15 +10,15 @@ export function validatePositivePrice(value: number, fieldLabel: string): string
 }
 
 /**
- * Validate a table number against the backend rule (integer, 1..999). Returns an
+ * Validate a table number against the backend rule (integer, 1..25). Returns an
  * empty string when valid, otherwise a French error message.
  */
 export function validateTableNumber(value: number | null): string {
   if (value === null || !Number.isFinite(value)) {
-    return 'Le numéro de table est obligatoire.';
+    return 'Veuillez saisir votre numéro de table';
   }
-  if (!Number.isInteger(value) || value < 1 || value > 999) {
-    return 'Le numéro de table doit être compris entre 1 et 999.';
+  if (!Number.isInteger(value) || value < 1 || value > 25) {
+    return 'Le numéro de table doit être compris entre 1 et 25.';
   }
   return '';
 }

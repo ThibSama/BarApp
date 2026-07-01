@@ -109,7 +109,6 @@ public class CocktailAdminService {
                 category,
                 name,
                 request.description().trim(),
-                normalize(request.shortDescription()),
                 normalize(request.imageUrl()),
                 request.active() == null || request.active());
         cocktailRepository.save(cocktail);
@@ -134,7 +133,6 @@ public class CocktailAdminService {
         cocktail.updateDetails(
                 name,
                 request.description().trim(),
-                normalize(request.shortDescription()),
                 normalize(request.imageUrl()),
                 request.active() == null || request.active());
         cocktail.changeCategory(category);

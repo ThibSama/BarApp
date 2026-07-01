@@ -9,7 +9,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: { template: '<div />' } },
-    { path: '/client/cocktails/:id', component: { template: '<div />' } },
+    { path: '/client/cocktails/:id', name: 'client-cocktail-details', component: { template: '<div />' } },
   ],
 });
 

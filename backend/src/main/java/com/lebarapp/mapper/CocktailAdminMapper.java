@@ -51,7 +51,6 @@ public class CocktailAdminMapper {
                 cocktail.getCategory().getName(),
                 cocktail.getName(),
                 cocktail.getDescription(),
-                cocktail.getShortDescription(),
                 cocktail.getImageUrl(),
                 cocktail.isActive(),
                 ingredientDtos,

@@ -228,7 +228,7 @@ class IngredientAdminServiceIT extends AbstractPostgresIntegrationTest {
                 new CocktailPriceRequest(CocktailSize.S, new BigDecimal("7.50")),
                 new CocktailPriceRequest(CocktailSize.M, new BigDecimal("9.00")),
                 new CocktailPriceRequest(CocktailSize.L, new BigDecimal("11.00")));
-        return new CocktailRequest(categoryId, name, "description", "résumé",
+        return new CocktailRequest(categoryId, name, "description",
                 null, true, ingredients, prices);
     }
 }

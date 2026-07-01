@@ -23,7 +23,7 @@ const canAdd = computed(() => sizeOptions.value.length > 0);
 
 <template>
   <article class="cocktail-card">
-    <RouterLink class="card-link" :to="`/client/cocktails/${cocktail.id}`" :aria-label="`Voir le détail de ${cocktail.name}`">
+    <RouterLink class="card-link" :to="{ name: 'client-cocktail-details', params: { id: cocktail.id } }" :aria-label="`Voir le détail de ${cocktail.name}`">
       <CocktailImage :image-url="cocktail.imageUrl ?? undefined" :cocktail-name="cocktail.name" />
     </RouterLink>
     <div class="card-body">

@@ -20,6 +20,13 @@ const barmaker: AuthenticatedUser = {
   role: 'BARMAKER',
 };
 
+const manager: AuthenticatedUser = {
+  id: 2,
+  username: 'manager',
+  displayName: 'Manager du bar',
+  role: 'MANAGER',
+};
+
 function storageDump(): string {
   let dump = '';
   for (let i = 0; i < sessionStorage.length; i += 1) {
@@ -52,6 +59,86 @@ describe('auth store', () => {
     expect(sessionStorage.getItem(TOKEN_KEY)).toBe('tok-abc');
     expect(storageDump()).not.toContain('super-secret');
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('accepts a BARMAKER login and reports isManager false', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      accessToken: 'tok-barmaker',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      user: barmaker,
+    });
+    const auth = useAuthStore();
+
+    const ok = await auth.login('barmaker', 'super-secret');
+
+    expect(ok).toBe(true);
+    expect(auth.isAuthenticated).toBe(true);
+    expect(auth.isManager).toBe(false);
+    expect(auth.user?.role).toBe('BARMAKER');
+  });
+
+  it('accepts a MANAGER login and reports isManager true', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      accessToken: 'tok-manager',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      user: manager,
+    });
+    const auth = useAuthStore();
+
+    const ok = await auth.login('manager', 'super-secret');
+
+    expect(ok).toBe(true);
+    expect(auth.isAuthenticated).toBe(true);
+    expect(auth.isManager).toBe(true);
+    expect(auth.user?.role).toBe('MANAGER');
+  });
+
+  it('rejects a login whose role is unknown and clears the session', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      accessToken: 'tok-bad',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      // Simulate a malformed/unknown role coming from the backend.
+      user: { ...barmaker, role: 'ADMIN' as unknown as AuthenticatedUser['role'] },
+    });
+    const auth = useAuthStore();
+
+    const ok = await auth.login('barmaker', 'super-secret');
+
+    expect(ok).toBe(false);
+    expect(auth.isAuthenticated).toBe(false);
+    expect(auth.accessToken).toBeNull();
+    expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('clears the session when the restored profile has an unknown role', async () => {
+    sessionStorage.setItem(TOKEN_KEY, 'tok');
+    sessionStorage.setItem(EXPIRES_KEY, String(Date.now() + 100_000));
+    vi.mocked(authApi.fetchCurrentUser).mockResolvedValue({
+      ...barmaker,
+      role: 'ROOT' as unknown as AuthenticatedUser['role'],
+    });
+    const auth = useAuthStore();
+
+    const ok = await auth.ensureSession();
+
+    expect(ok).toBe(false);
+    expect(auth.accessToken).toBeNull();
+    expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('restores a MANAGER session and keeps isManager true', async () => {
+    sessionStorage.setItem(TOKEN_KEY, 'tok');
+    sessionStorage.setItem(EXPIRES_KEY, String(Date.now() + 100_000));
+    vi.mocked(authApi.fetchCurrentUser).mockResolvedValue(manager);
+    const auth = useAuthStore();
+
+    const ok = await auth.ensureSession();
+
+    expect(ok).toBe(true);
+    expect(auth.isManager).toBe(true);
   });
 
   it('exposes a generic French error and stores nothing on failed login', async () => {

@@ -8,10 +8,16 @@ import { useAuthStore } from '@/stores/auth';
 // stray call is harmless and never hits the network.
 vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 401, ok: false, text: async () => '' }));
 
-function authenticate(): void {
+function authenticate(role: 'BARMAKER' | 'MANAGER' = 'BARMAKER'): void {
   const auth = useAuthStore();
   auth.accessToken = 'tok';
   auth.sessionValidated = true;
+  auth.user = {
+    id: role === 'MANAGER' ? 2 : 1,
+    username: role === 'MANAGER' ? 'manager' : 'barmaker',
+    displayName: role === 'MANAGER' ? 'Manager du bar' : 'Barman principal',
+    role,
+  };
 }
 
 describe('router guards', () => {
@@ -48,5 +54,24 @@ describe('router guards', () => {
   it('keeps client routes public', async () => {
     await router.push('/client/menu');
     expect(router.currentRoute.value.name).toBe('client-menu');
+  });
+
+  it('redirects an anonymous visitor from /bar/users to /bar/login', async () => {
+    await router.push('/bar/users');
+    await router.isReady();
+    expect(router.currentRoute.value.name).toBe('bar-login');
+    expect(router.currentRoute.value.query.redirect).toBe('/bar/users');
+  });
+
+  it('redirects an authenticated regular barmaker away from /bar/users to /bar/orders', async () => {
+    authenticate('BARMAKER');
+    await router.push('/bar/users');
+    expect(router.currentRoute.value.name).toBe('bar-orders');
+  });
+
+  it('lets an authenticated manager reach /bar/users', async () => {
+    authenticate('MANAGER');
+    await router.push('/bar/users');
+    expect(router.currentRoute.value.name).toBe('bar-users');
   });
 });

@@ -30,6 +30,8 @@ public enum ApiErrorCode {
             "L'ingrédient demandé est introuvable."),
     INGREDIENT_ALREADY_EXISTS(HttpStatus.CONFLICT,
             "Un ingrédient portant ce nom existe déjà."),
+    USERNAME_ALREADY_EXISTS(HttpStatus.CONFLICT,
+            "Ce nom d’utilisateur est déjà utilisé."),
     INVALID_CATALOG_REQUEST(HttpStatus.BAD_REQUEST,
             "Les données du catalogue sont invalides."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND,

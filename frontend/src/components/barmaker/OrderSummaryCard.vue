@@ -17,7 +17,7 @@ defineProps<{ order: BarOrderSummary }>();
     <StatusBadge :label="apiOrderStatusLabels[order.status]" :tone="apiOrderStatusTone(order.status)" />
     <p class="meta">{{ order.completedItemCount }}/{{ order.itemCount }} cocktail(s)</p>
     <strong class="total">{{ formatCurrency(order.totalAmount) }}</strong>
-    <RouterLink class="open-link" :to="`/bar/orders/${order.id}`">Ouvrir <AppIcon name="chevron-right" :size="17" /></RouterLink>
+    <RouterLink class="open-link" :to="{ name: 'bar-order-details', params: { orderId: order.id } }">Ouvrir <AppIcon name="chevron-right" :size="17" /></RouterLink>
   </article>
 </template>
 

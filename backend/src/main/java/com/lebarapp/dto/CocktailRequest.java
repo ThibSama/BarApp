@@ -29,9 +29,6 @@ public record CocktailRequest(
         @NotBlank(message = "La description est obligatoire.")
         String description,
 
-        @Size(max = 255, message = "Le résumé ne doit pas dépasser 255 caractères.")
-        String shortDescription,
-
         @Size(max = 500, message = "L'URL de l'image ne doit pas dépasser 500 caractères.")
         String imageUrl,
 

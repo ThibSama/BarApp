@@ -72,7 +72,7 @@ usePolling(() => {
 
   <section v-else-if="store.detailNotFound" class="card empty-state">
     <h1>Commande introuvable</h1>
-    <RouterLink class="button" to="/bar/orders">Retour aux commandes</RouterLink>
+    <RouterLink class="button" :to="{ name: 'bar-orders' }">Retour aux commandes</RouterLink>
   </section>
 
   <section v-else-if="!order && store.detailError" class="card empty-state">
@@ -82,7 +82,7 @@ usePolling(() => {
   </section>
 
   <section v-else-if="order" class="stack order-detail-page">
-    <RouterLink class="back-link" to="/bar/orders"><AppIcon name="arrow-left" :size="18" />Retour aux commandes</RouterLink>
+    <RouterLink class="back-link" :to="{ name: 'bar-orders' }"><AppIcon name="arrow-left" :size="18" />Retour aux commandes</RouterLink>
     <div class="detail-header-row">
       <BarmakerPageHeader eyebrow="DÉTAIL COMMANDE" :title="order.publicCode" :description="`Table ${order.tableNumber} · créée le ${formatTime(order.createdAt)}`" />
       <StatusBadge :label="apiOrderStatusLabels[order.status]" :tone="apiOrderStatusTone(order.status)" />

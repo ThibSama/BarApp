@@ -86,10 +86,12 @@ PUBLIC_CODE_GENERATION_FAILED` est renvoyée. Voir le
 
 ## Migrations
 
-Les colonnes `category.description` et `cocktail.short_description` proviennent de
-**V4**. Le référentiel d'ingrédients (`ingredient.active`, index unique
+La colonne `category.description` provient de **V4**. La colonne
+`cocktail.short_description` (ajoutée par V4) a été **supprimée par V8** : un
+cocktail ne porte plus qu'**une seule description** (`description`, obligatoire).
+Le référentiel d'ingrédients (`ingredient.active`, index unique
 `uk_ingredient_name_lower`) existe déjà depuis **V1**, donc le CRUD autonome des
-ingrédients n'a **nécessité aucune migration** (**pas de V6**).
+ingrédients n'a nécessité aucune migration dédiée.
 
 > Intégration frontend et suppression des mocks : **passe ultérieure**. Ces API
 > ne sont pas encore consommées par le front.

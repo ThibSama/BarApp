@@ -53,6 +53,12 @@ npm run dev
 
 Open the Vite URL displayed in the terminal.
 
+The dev server also accepts the two role-specific loopback hostnames (allow-listed
+in `vite.config.ts`, no wildcard):
+
+- <http://client.localhost:5173> — client interface
+- <http://barmaker.localhost:5173> — barmaker interface
+
 ## Docker startup
 
 ```bash
@@ -87,18 +93,35 @@ Tests cover cart calculations and mutations, mock payment selection, order compl
 
 ## Available routes
 
+Routing is **host-aware**: route *names* are stable across modes while the paths
+depend on the hostname (`src/router/routes.ts` builds the table from
+`window.location.hostname`). See the root `README.md` for the full access model
+(clean hostnames vs legacy vs LAN).
+
+**Client hostname** (`client.localhost`):
+
+- `/` — cocktail menu
+- `/cocktails/:id` — cocktail details
+- `/panier` — cart
+- `/confirmation/:orderId` — order confirmation
+- `/suivi`, `/suivi/:orderId` — order tracking
+
+**Barmaker hostname** (`barmaker.localhost`):
+
+- `/` — redirects to `/login` (no session) or `/orders` (authenticated)
+- `/login` — barmaker login
+- `/orders`, `/orders/:orderId` — order dashboard / details
+- `/categories` — category management
+- `/cocktails` — cocktail management (modal query for create/edit)
+
+**Legacy hostname** (`localhost`, `127.0.0.1`, LAN IPs, unknown hosts) — the
+historical paths are preserved unchanged:
+
 - `/` — redirects to `/client/menu`
-- `/client/menu` — cocktail menu
-- `/client/cocktails/:id` — cocktail details
-- `/client/panier` — cart
-- `/client/confirmation/:orderId` — order confirmation
-- `/client/suivi/:orderId` — order tracking
-- `/barmaker/commandes` — barmaker order dashboard
-- `/barmaker/commandes/:orderId` — barmaker order details
-- `/barmaker/categories` — category management
-- `/barmaker/cocktails` — cocktail management
-- `/barmaker/cocktails/nouveau` — cocktail creation
-- `/barmaker/cocktails/:cocktailId/modifier` — cocktail edition
+- `/client/**` — client flow (`menu`, `cocktails/:id`, `panier`,
+  `confirmation/:orderId`, `suivi`, `suivi/:orderId`)
+- `/bar/login` and `/bar/**` — barmaker login + authenticated workspace
+- `/barmaker/**` — backward-compatibility redirects to the `/bar/**` paths
 - Any unknown route displays a French 404 page
 
 ## Mock-data architecture

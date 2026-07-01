@@ -52,7 +52,7 @@ function addSelectedSize(cocktail: MenuCocktailView, size: ApiSize): void {
         <div class="title-underline" aria-hidden="true"></div>
         <p class="hero-subtitle">Découvrez tous nos cocktails</p>
       </div>
-      <RouterLink class="basket-button" to="/client/panier"><span aria-hidden="true"><AppIcon name="clipboard-list" :size="20" /></span> Panier <span class="basket-count">{{ cart.itemCount }}</span></RouterLink>
+      <RouterLink class="basket-button" :to="{ name: 'client-cart' }"><span aria-hidden="true"><AppIcon name="clipboard-list" :size="20" /></span> Panier <span class="basket-count">{{ cart.itemCount }}</span></RouterLink>
     </div>
 
     <!-- Initial loading: no menu data yet. -->

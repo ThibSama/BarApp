@@ -160,11 +160,25 @@ Le jeton **n'est accepté que** depuis cet en-tête. Les jetons passés via :
 |---------|------------------|---------------|
 | `GET`   | `/api/auth/me`   | Authentifié   |
 
-### Routes protégées (rôle `BARMAKER`)
+### Routes protégées (personnel)
 
-| Méthode | Route            | Rôle requis   |
-|---------|------------------|---------------|
-| `*`     | `/api/bar/**`    | `ROLE_BARMAKER` |
+Deux rôles authentifiés existent : `BARMAKER` et `MANAGER`. Un `MANAGER` est un
+barmaker élevé qui conserve tout l'accès barmaker ; ce n'est **pas** une
+hiérarchie Spring — chaque matcher liste explicitement les rôles autorisés.
+
+| Méthode | Route              | Rôle requis                        |
+|---------|--------------------|------------------------------------|
+| `*`     | `/api/bar/users/**`| `ROLE_MANAGER`                     |
+| `*`     | `/api/bar/**`      | `ROLE_BARMAKER` **ou** `ROLE_MANAGER` |
+
+> L'ordre est significatif : le matcher `/api/bar/users/**` (manager) est déclaré
+> **avant** le matcher large `/api/bar/**`, sinon un barmaker accéderait à la
+> gestion du personnel.
+
+Un barmaker authentifié appelant `/api/bar/users/**` reçoit `403 ACCESS_DENIED` ;
+un appel anonyme reçoit `401 AUTHENTICATION_REQUIRED`. Les autorités étant
+rechargées depuis PostgreSQL à chaque requête, une revendication `role` falsifiée
+dans le JWT ne peut pas élever les privilèges.
 
 Toutes les autres routes sont **authentifiées par défaut** (secure default).
 

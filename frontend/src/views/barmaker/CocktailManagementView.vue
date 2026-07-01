@@ -142,7 +142,7 @@ watch(() => [route.query.modal, route.query.cocktailId], () => { formModalKey.va
       <div v-if="filteredCocktails.length" class="cocktail-list">
         <article v-for="cocktail in filteredCocktails" :key="cocktail.id" class="cocktail-row">
           <div class="thumb"><CocktailImage :image-url="cocktail.imageUrl ?? undefined" :cocktail-name="cocktail.name" /></div>
-          <div class="cocktail-copy"><h2>{{ cocktail.name }}</h2><p>{{ cocktail.shortDescription }}</p><p class="category-meta">{{ cocktail.categoryName }}</p></div>
+          <div class="cocktail-copy"><h2>{{ cocktail.name }}</h2><p>{{ cocktail.description }}</p><p class="category-meta">{{ cocktail.categoryName }}</p></div>
           <dl class="prices"><div><dt>S</dt><dd>{{ formatCurrency(priceForSize(cocktail.prices, 'S') ?? 0) }}</dd></div><div><dt>M</dt><dd>{{ formatCurrency(priceForSize(cocktail.prices, 'M') ?? 0) }}</dd></div><div><dt>L</dt><dd>{{ formatCurrency(priceForSize(cocktail.prices, 'L') ?? 0) }}</dd></div></dl>
           <StatusBadge :label="cocktail.active ? 'Disponible' : 'Indisponible'" :tone="cocktail.active ? 'success' : 'danger'" />
           <div class="row-actions"><button class="admin-action secondary" type="button" @click="openEditModal(cocktail.id)"><AppIcon name="pencil" :size="16" />Modifier</button><button class="admin-action secondary" type="button" :disabled="store.isPending(cocktail.id)" @click="toggleActive(cocktail)"><AppIcon name="power" :size="16" />{{ cocktail.active ? 'Désactiver' : 'Activer' }}</button></div>

@@ -14,8 +14,10 @@ import java.time.OffsetDateTime;
 import java.util.Objects;
 
 /**
- * Barmaker account. Authentication (Spring Security / BCrypt / JWT) is out of
- * scope for this stage; the entity exists for schema coherence only.
+ * Staff account (barmaker or manager). Authentication uses Spring Security with
+ * BCrypt password hashes and stateless JWTs. New accounts are created only
+ * through {@link #createBarmaker(String, String, String)}; the role and password
+ * hash have no public setters so they cannot be reassigned after creation.
  */
 @Entity
 @Table(name = "app_user")
@@ -48,6 +50,27 @@ public class AppUser {
     private OffsetDateTime updatedAt;
 
     protected AppUser() {
+    }
+
+    /**
+     * Controlled factory for a brand-new barmaker account. The role is fixed to
+     * {@link UserRole#BARMAKER} and the account is created active; neither can be
+     * chosen by the caller. The password argument must already be a BCrypt hash —
+     * no plaintext password is ever stored. Timestamps are assigned by the
+     * database ({@code insertable = false}).
+     *
+     * @param username     login identifier (already validated/trimmed by the service)
+     * @param passwordHash a BCrypt hash, never a plaintext password
+     * @param displayName  human-readable staff name (already validated/trimmed)
+     */
+    public static AppUser createBarmaker(String username, String passwordHash, String displayName) {
+        AppUser user = new AppUser();
+        user.username = username;
+        user.passwordHash = passwordHash;
+        user.displayName = displayName;
+        user.role = UserRole.BARMAKER;
+        user.active = true;
+        return user;
     }
 
     public Long getId() {

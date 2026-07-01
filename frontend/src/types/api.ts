@@ -24,12 +24,15 @@ export type ApiPaymentMethod =
   | 'APPLE_PAY'
   | 'GOOGLE_PAY';
 
-/** Authenticated barmaker profile, returned by login and `GET /api/auth/me`. */
+/** Authenticated staff role (`UserRole` on the backend). */
+export type UserRole = 'BARMAKER' | 'MANAGER';
+
+/** Authenticated staff profile, returned by login and `GET /api/auth/me`. */
 export interface AuthenticatedUser {
   id: number;
   username: string;
   displayName: string;
-  role: 'BARMAKER';
+  role: UserRole;
 }
 
 /** Successful `POST /api/auth/login` response. */
@@ -213,7 +216,6 @@ export interface CocktailResponse {
   categoryName: string;
   name: string;
   description: string;
-  shortDescription: string | null;
   imageUrl: string | null;
   active: boolean;
   ingredients: CocktailIngredientResponse[];
@@ -238,11 +240,31 @@ export interface CocktailRequest {
   categoryId: number;
   name: string;
   description: string;
-  shortDescription: string | null;
   imageUrl: string | null;
   active: boolean;
   ingredients: CocktailIngredientRequest[];
   prices: CocktailPriceRequest[];
+}
+
+// --- Manager-only staff administration (`/api/bar/users`) -----------------
+
+/** A staff account as returned by the manager-only `/api/bar/users` endpoints.
+ *  Never carries a password or password hash. */
+export interface UserAdminResponse {
+  id: number;
+  username: string;
+  displayName: string;
+  role: UserRole;
+  active: boolean;
+  createdAt: string;
+}
+
+/** Manager-only payload to create a new barmaker (`POST /api/bar/users`). The
+ *  role is fixed server-side to `BARMAKER`; it is never part of this contract. */
+export interface CreateBarmakerRequest {
+  displayName: string;
+  username: string;
+  password: string;
 }
 
 /** An ingredient in the management API (active and inactive alike). */

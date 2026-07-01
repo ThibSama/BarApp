@@ -31,7 +31,6 @@ interface IngredientRow {
 const form = reactive({
   categoryId: null as number | null,
   name: '',
-  shortDescription: '',
   description: '',
   imageUrl: '',
   active: true,
@@ -62,7 +61,6 @@ async function loadExisting(id: number): Promise<void> {
     const data = await cocktails.loadOne(id);
     form.categoryId = data.categoryId;
     form.name = data.name;
-    form.shortDescription = data.shortDescription ?? '';
     form.description = data.description;
     form.imageUrl = data.imageUrl ?? '';
     form.active = data.active;
@@ -117,7 +115,6 @@ function buildPayload(): CocktailRequest {
     categoryId: form.categoryId as number,
     name: form.name.trim(),
     description: form.description.trim(),
-    shortDescription: form.shortDescription.trim() || null,
     imageUrl: form.imageUrl.trim() || null,
     active: form.active,
     ingredients: form.ingredients
@@ -135,7 +132,7 @@ function applyFieldErrors(err: unknown): void {
   if (err instanceof ApiError && err.fieldErrors?.length) {
     err.fieldErrors.forEach((field) => {
       // Map top-level scalar fields; nested errors fall back to the banner.
-      if (['name', 'description', 'shortDescription', 'imageUrl', 'categoryId'].includes(field.field)) {
+      if (['name', 'description', 'imageUrl', 'categoryId'].includes(field.field)) {
         errors[field.field] = field.message;
       }
     });
@@ -171,11 +168,10 @@ defineExpose({ save, submitting });
     <p v-if="formError" class="alert error" role="alert">{{ formError }}</p>
 
     <section class="form-section">
-      <div class="section-heading"><h2>Informations générales</h2><p class="muted">Nom, descriptions et catégorie d’affichage.</p></div>
+      <div class="section-heading"><h2>Informations générales</h2><p class="muted">Nom, description et catégorie d’affichage.</p></div>
       <div class="form-grid">
         <label>Nom <input v-model="form.name" type="text" /><span v-if="errors.name" class="field-error">{{ errors.name }}</span></label>
-        <label>Description courte <input v-model="form.shortDescription" type="text" /></label>
-        <label class="wide">Description complète <textarea v-model="form.description" rows="4"></textarea><span v-if="errors.description" class="field-error">{{ errors.description }}</span></label>
+        <label class="wide">Description <textarea v-model="form.description" rows="4"></textarea><span v-if="errors.description" class="field-error">{{ errors.description }}</span></label>
         <label>Catégorie
           <select v-model="form.categoryId">
             <option :value="null" disabled>Sélectionner…</option>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type IconName = 'arrow-left' | 'check' | 'chevron-right' | 'clipboard-list' | 'clock' | 'grid' | 'menu' | 'martini' | 'pencil' | 'plus' | 'power' | 'search' | 'sliders' | 'tags' | 'trash' | 'x';
+type IconName = 'arrow-left' | 'check' | 'chevron-right' | 'clipboard-list' | 'clock' | 'grid' | 'menu' | 'martini' | 'pencil' | 'plus' | 'power' | 'search' | 'sliders' | 'tags' | 'trash' | 'users' | 'x';
 
 withDefaults(defineProps<{ name: IconName; size?: number }>(), { size: 20 });
 </script>
@@ -21,6 +21,7 @@ withDefaults(defineProps<{ name: IconName; size?: number }>(), { size: 20 });
     <template v-else-if="name === 'sliders'"><path d="M4 7h9" /><path d="M17 7h3" /><path d="M14 5v4" /><path d="M4 17h3" /><path d="M11 17h9" /><path d="M8 15v4" /></template>
     <template v-else-if="name === 'tags'"><path d="M20.5 13.5 13 21l-9-9V4h8l8.5 8.5a1.4 1.4 0 0 1 0 2Z" /><path d="M7.5 7.5h.01" /></template>
     <template v-else-if="name === 'trash'"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="m6 6 1 15h10l1-15" /><path d="M10 11v6" /><path d="M14 11v6" /></template>
+    <template v-else-if="name === 'users'"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></template>
     <template v-else-if="name === 'x'"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></template>
   </svg>
 </template>

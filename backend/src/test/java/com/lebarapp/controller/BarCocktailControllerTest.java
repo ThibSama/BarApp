@@ -67,7 +67,6 @@ class BarCocktailControllerTest {
               "categoryId": 1,
               "name": "Mojito",
               "description": "Cocktail frais à base de rhum.",
-              "shortDescription": "Rhum, menthe et citron vert.",
               "imageUrl": "https://example.test/mojito.jpg",
               "ingredients": [
                 {"name": "Rhum blanc", "quantityLabel": "5 cl", "displayOrder": 1},
@@ -83,7 +82,7 @@ class BarCocktailControllerTest {
 
     private static CocktailResponse stub() {
         return new CocktailResponse(10L, 1L, "Classiques", "Mojito",
-                "Cocktail frais à base de rhum.", "Rhum, menthe et citron vert.",
+                "Cocktail frais à base de rhum.",
                 "https://example.test/mojito.jpg", true,
                 List.of(new CocktailIngredientResponse(1L, "Rhum blanc", "5 cl", 1)),
                 List.of(new CocktailPriceResponse(CocktailSize.S, new BigDecimal("7.50"))));
@@ -104,6 +103,9 @@ class BarCocktailControllerTest {
         mockMvc.perform(get("/api/bar/cocktails/10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.description").value("Cocktail frais à base de rhum."))
+                // The obsolete short description is gone from the management contract.
+                .andExpect(jsonPath("$.shortDescription").doesNotExist())
                 .andExpect(jsonPath("$.prices[0].size").value("S"));
     }
 

@@ -19,7 +19,7 @@ onMounted(() => orders.loadOrder(orderId.value, { initial: true }));
 <template>
   <section v-if="orders.loading && !order" class="card empty-state" aria-busy="true"><h1>Chargement de la commande…</h1></section>
 
-  <section v-else-if="orders.notFound" class="card empty-state"><h1>Commande introuvable</h1><RouterLink class="button" to="/client/menu">Retour à la carte</RouterLink></section>
+  <section v-else-if="orders.notFound" class="card empty-state"><h1>Commande introuvable</h1><RouterLink class="button" :to="{ name: 'client-menu' }">Retour à la carte</RouterLink></section>
 
   <section v-else-if="!order && orders.error" class="card empty-state">
     <h1>Impossible de charger la commande</h1>
@@ -39,10 +39,10 @@ onMounted(() => orders.loadOrder(orderId.value, { initial: true }));
     <p><strong>Mode de paiement :</strong> {{ getPaymentMethodLabel(order.paymentMethod) }}</p>
     <p class="alert success">{{ getPaymentSimulationMessage(order.paymentMethod) }}</p>
     <strong>Total : {{ formatCurrency(order.totalAmount) }}</strong>
-    <RouterLink class="button" :to="`/client/suivi/${order.id}`">Suivre la commande</RouterLink>
+    <RouterLink class="button" :to="{ name: 'client-order-tracking', params: { orderId: order.id } }">Suivre la commande</RouterLink>
   </section>
 
-  <section v-else class="card empty-state"><h1>Commande introuvable</h1><RouterLink class="button" to="/client/menu">Retour à la carte</RouterLink></section>
+  <section v-else class="card empty-state"><h1>Commande introuvable</h1><RouterLink class="button" :to="{ name: 'client-menu' }">Retour à la carte</RouterLink></section>
 </template>
 
 <style scoped>

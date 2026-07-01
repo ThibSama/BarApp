@@ -60,7 +60,7 @@ async function confirmOrder(): Promise<void> {
     tableInput.value = '';
     localStorage.removeItem(TABLE_KEY);
     selectedPaymentMethod.value = '';
-    await router.push(`/client/confirmation/${order.id}`);
+    await router.push({ name: 'client-order-confirmation', params: { orderId: order.id } });
   } catch {
     // Failure: keep the cart, table number and payment; surface the message.
     submitError.value = orders.submitError;
@@ -70,7 +70,7 @@ async function confirmOrder(): Promise<void> {
 
 <template>
   <section class="stack">
-    <div class="page-title cart-title"><div><h1>Votre panier</h1><div class="title-underline" aria-hidden="true"></div></div><RouterLink class="basket-button" to="/client/panier"><span aria-hidden="true"><AppIcon name="clipboard-list" :size="20" /></span> Panier <span class="basket-count">{{ cart.itemCount }}</span></RouterLink></div>
+    <div class="page-title cart-title"><div><h1>Votre panier</h1><div class="title-underline" aria-hidden="true"></div></div><RouterLink class="basket-button" :to="{ name: 'client-cart' }"><span aria-hidden="true"><AppIcon name="clipboard-list" :size="20" /></span> Panier <span class="basket-count">{{ cart.itemCount }}</span></RouterLink></div>
     <div v-if="!cart.isEmpty" class="cart-layout">
       <div class="cart-main stack">
         <div class="cart-list card">
@@ -87,23 +87,23 @@ async function confirmOrder(): Promise<void> {
 
         <section class="card table-card" aria-labelledby="table-title">
           <h2 id="table-title">Numéro de table</h2>
-          <p class="muted">Indiquez votre table (1 à 999) pour activer le paiement.</p>
+          <p class="muted">Indiquez votre table (1 à 25) pour activer le paiement.</p>
           <label class="table-field">
             <span class="visually-hidden">Numéro de table</span>
-            <input v-model="tableInput" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="Ex. 12" aria-describedby="table-help" />
+            <input v-model="tableInput" type="number" inputmode="numeric" min="1" max="25" step="1" placeholder="Ex. 12" aria-describedby="table-help" />
           </label>
           <p v-if="showTableError" id="table-help" class="alert error" role="alert">{{ tableError }}</p>
         </section>
 
         <PaymentSelector v-if="paymentAvailable" v-model="selectedPaymentMethod" class="payment-compact" />
-        <p v-else class="alert warning" role="status">Saisissez un numéro de table valide pour choisir un mode de paiement.</p>
+        <p v-else class="alert warning" role="status">Veuillez saisir votre numéro de table</p>
 
         <p v-if="submitError" class="alert error" role="alert">{{ submitError }}</p>
         <p v-else-if="selectedPaymentMethod" class="alert success">{{ getPaymentSimulationMessage(selectedPaymentMethod) }}</p>
       </div>
-      <aside class="card summary"><h2>Récapitulatif</h2><p><span>Sous-total</span><strong>{{ formatCurrency(cart.total) }}</strong></p><p class="total"><span>Total</span><strong>{{ formatCurrency(cart.total) }}</strong></p><p v-if="!canSubmit" class="muted">Renseignez votre table puis un mode de paiement pour valider la commande.</p><RouterLink class="summary-link" to="/client/menu">Continuer la commande</RouterLink><button class="button full" type="button" :disabled="!canSubmit" @click="confirmOrder">{{ orders.submitting ? 'Envoi en cours…' : 'Valider la commande' }}</button></aside>
+      <aside class="card summary"><h2>Récapitulatif</h2><p><span>Sous-total</span><strong>{{ formatCurrency(cart.total) }}</strong></p><p class="total"><span>Total</span><strong>{{ formatCurrency(cart.total) }}</strong></p><p v-if="!canSubmit" class="muted">Renseignez votre table puis un mode de paiement pour valider la commande.</p><RouterLink class="summary-link" :to="{ name: 'client-menu' }">Continuer la commande</RouterLink><button class="button full" type="button" :disabled="!canSubmit" @click="confirmOrder">{{ orders.submitting ? 'Envoi en cours…' : 'Valider la commande' }}</button></aside>
     </div>
-    <section v-else class="card empty-state"><h2>Votre panier est vide</h2><p>Ajoutez des cocktails pour commencer votre commande.</p><RouterLink class="button" to="/client/menu">Parcourir la carte</RouterLink></section>
+    <section v-else class="card empty-state"><h2>Votre panier est vide</h2><p>Ajoutez des cocktails pour commencer votre commande.</p><RouterLink class="button" :to="{ name: 'client-menu' }">Parcourir la carte</RouterLink></section>
   </section>
 </template>
 

@@ -7,23 +7,23 @@ const cart = useCartStore();
 <template>
   <div class="client-shell">
     <aside class="client-sidebar" aria-label="Navigation client bureau">
-      <RouterLink class="client-logo" to="/client/menu" aria-label="Le Bar’App - carte des cocktails">
+      <RouterLink class="client-logo" :to="{ name: 'client-menu' }" aria-label="Le Bar’App - carte des cocktails">
         <span aria-hidden="true"><AppIcon name="martini" :size="28" /></span>
         <strong>LE BAR’APP</strong>
         <small>COCKTAILS &amp; GOOD VIBES</small>
       </RouterLink>
       <nav class="client-nav" aria-label="Navigation client">
-        <RouterLink to="/client/menu"><span><span aria-hidden="true"><AppIcon name="martini" :size="20" /></span> Carte des cocktails</span></RouterLink>
-        <RouterLink to="/client/panier"><span><span aria-hidden="true"><AppIcon name="clipboard-list" :size="20" /></span> Panier</span> <span v-if="cart.itemCount" class="nav-badge">{{ cart.itemCount }}</span></RouterLink>
-        <RouterLink to="/client/suivi"><span><span aria-hidden="true"><AppIcon name="clock" :size="20" /></span> Ma commande</span></RouterLink>
+        <RouterLink :to="{ name: 'client-menu' }"><span><span aria-hidden="true"><AppIcon name="martini" :size="20" /></span> Carte des cocktails</span></RouterLink>
+        <RouterLink :to="{ name: 'client-cart' }"><span><span aria-hidden="true"><AppIcon name="clipboard-list" :size="20" /></span> Panier</span> <span v-if="cart.itemCount" class="nav-badge">{{ cart.itemCount }}</span></RouterLink>
+        <RouterLink :to="{ name: 'client-current-order' }"><span><span aria-hidden="true"><AppIcon name="clock" :size="20" /></span> Ma commande</span></RouterLink>
       </nav>
       <div class="sidebar-illustration" aria-hidden="true"><AppIcon name="martini" :size="96" /></div>
     </aside>
 
     <div class="client-content">
       <header class="mobile-client-header">
-        <RouterLink class="mobile-brand" to="/client/menu" aria-label="Le Bar’App">LE BAR’APP</RouterLink>
-        <RouterLink class="basket-shortcut" to="/client/panier" aria-label="Ouvrir le panier">
+        <RouterLink class="mobile-brand" :to="{ name: 'client-menu' }" aria-label="Le Bar’App">LE BAR’APP</RouterLink>
+        <RouterLink class="basket-shortcut" :to="{ name: 'client-cart' }" aria-label="Ouvrir le panier">
           Panier <span class="nav-badge">{{ cart.itemCount }}</span>
         </RouterLink>
       </header>
@@ -31,9 +31,9 @@ const cart = useCartStore();
     </div>
 
     <nav class="mobile-bottom-nav" aria-label="Navigation client mobile">
-      <RouterLink to="/client/menu">Carte</RouterLink>
-      <RouterLink to="/client/panier">Panier <span v-if="cart.itemCount" class="nav-badge">{{ cart.itemCount }}</span></RouterLink>
-      <RouterLink to="/client/suivi">Ma commande</RouterLink>
+      <RouterLink :to="{ name: 'client-menu' }">Carte</RouterLink>
+      <RouterLink :to="{ name: 'client-cart' }">Panier <span v-if="cart.itemCount" class="nav-badge">{{ cart.itemCount }}</span></RouterLink>
+      <RouterLink :to="{ name: 'client-current-order' }">Ma commande</RouterLink>
     </nav>
   </div>
 </template>

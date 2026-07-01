@@ -34,10 +34,6 @@ public class Cocktail {
     @Column(nullable = false, columnDefinition = "text")
     private String description;
 
-    // Optional teaser shown on menu cards / edited in the barmaker UI (V4 column).
-    @Column(name = "short_description", length = 255)
-    private String shortDescription;
-
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
@@ -68,23 +64,21 @@ public class Cocktail {
      * this entity only owns its own scalar state and its category link.
      */
     public static Cocktail create(Category category, String name, String description,
-                                  String shortDescription, String imageUrl, boolean active) {
+                                  String imageUrl, boolean active) {
         Cocktail cocktail = new Cocktail();
         cocktail.category = category;
         cocktail.name = name;
         cocktail.description = description;
-        cocktail.shortDescription = shortDescription;
         cocktail.imageUrl = imageUrl;
         cocktail.active = active;
         return cocktail;
     }
 
     /** Updates the scalar details edited through the management API. */
-    public void updateDetails(String name, String description, String shortDescription,
+    public void updateDetails(String name, String description,
                               String imageUrl, boolean active) {
         this.name = name;
         this.description = description;
-        this.shortDescription = shortDescription;
         this.imageUrl = imageUrl;
         this.active = active;
     }
@@ -116,10 +110,6 @@ public class Cocktail {
 
     public String getDescription() {
         return description;
-    }
-
-    public String getShortDescription() {
-        return shortDescription;
     }
 
     public String getImageUrl() {

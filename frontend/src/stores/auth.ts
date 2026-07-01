@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { configureApiAuth } from '@/services/apiClient';
 import { fetchCurrentUser, login as loginRequest } from '@/services/authApi';
-import type { AuthenticatedUser } from '@/types/api';
+import type { AuthenticatedUser, UserRole } from '@/types/api';
 
 // Session-scoped storage: the JWT lives only for the browser session and is
 // dropped when the tab closes. We deliberately do NOT use localStorage.
@@ -12,12 +12,27 @@ const USER_KEY = 'barapp.auth.user';
 
 const GENERIC_LOGIN_ERROR = 'Identifiants invalides. Veuillez réessayer.';
 
+// The only two authenticated staff roles. Any other value (missing, misspelled,
+// an arbitrary string, or a removed legacy role) is rejected so a malformed
+// profile can never grant access.
+const VALID_ROLES: readonly UserRole[] = ['BARMAKER', 'MANAGER'];
+
+function isValidUser(value: unknown): value is AuthenticatedUser {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<AuthenticatedUser>;
+  return (
+    typeof candidate.username === 'string' &&
+    candidate.role !== undefined &&
+    VALID_ROLES.includes(candidate.role)
+  );
+}
+
 function readStoredUser(): AuthenticatedUser | null {
   const raw = sessionStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as AuthenticatedUser;
-    if (parsed && typeof parsed.username === 'string' && parsed.role === 'BARMAKER') return parsed;
+    const parsed: unknown = JSON.parse(raw);
+    if (isValidUser(parsed)) return parsed;
   } catch {
     /* ignore malformed storage */
   }
@@ -38,6 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
   let restorePromise: Promise<boolean> | null = null;
 
   const isAuthenticated = computed(() => Boolean(accessToken.value) && sessionValidated.value);
+  const isManager = computed(() => user.value?.role === 'MANAGER');
   const displayName = computed(() => user.value?.displayName ?? '');
 
   function isLocallyExpired(): boolean {
@@ -76,7 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = '';
     try {
       const response = await loginRequest(username, password);
-      if (response.user.role !== 'BARMAKER') {
+      if (!isValidUser(response.user)) {
         clearSession();
         error.value = GENERIC_LOGIN_ERROR;
         return false;
@@ -105,7 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
     try {
       const profile = await fetchCurrentUser();
-      if (!profile || profile.role !== 'BARMAKER') {
+      if (!isValidUser(profile)) {
         clearSession();
         return false;
       }
@@ -149,6 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     isAuthenticated,
+    isManager,
     displayName,
     login,
     ensureSession,

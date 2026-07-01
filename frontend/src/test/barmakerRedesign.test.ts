@@ -36,7 +36,7 @@ function router(path = '/bar/cocktails') {
 
 async function fillValidCocktailForm(name = 'Cocktail test') {
   await fireEvent.update(screen.getByLabelText(/^Nom/), name);
-  await fireEvent.update(screen.getByLabelText(/^Description complète/), 'Longue description');
+  await fireEvent.update(screen.getByLabelText(/^Description/), 'Longue description');
   await fireEvent.update(screen.getByLabelText('Ingrédient 1'), 'Citron');
   await fireEvent.update(screen.getByLabelText(/^Prix S/), '6');
   await fireEvent.update(screen.getByLabelText(/^Prix M/), '8');
@@ -130,6 +130,13 @@ describe('barmaker catalogue administration (real admin API)', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Créer un cocktail' }));
     const dialog = await screen.findByRole('dialog', { name: 'Créer un cocktail' });
     expect(dialog.className).toContain('modal-panel--large');
+
+    // Exactly one description field, labelled "Description" (no short/long split).
+    expect(within(dialog).getAllByLabelText(/^Description/)).toHaveLength(1);
+    expect(within(dialog).getByLabelText('Description').tagName).toBe('TEXTAREA');
+    expect(within(dialog).queryByLabelText('Description courte')).toBeNull();
+    expect(within(dialog).queryByLabelText('Description complète')).toBeNull();
+
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
     expect(within(dialog).getByText('Le nom est obligatoire.')).toBeTruthy();
 
@@ -140,6 +147,7 @@ describe('barmaker catalogue administration (real admin API)', () => {
       expect.objectContaining({
         categoryId: 1,
         name: 'Cocktail payload',
+        description: 'Longue description',
         ingredients: [{ name: 'Citron', quantityLabel: null, displayOrder: 0 }],
         prices: [
           { size: 'S', price: 6 },
@@ -148,6 +156,8 @@ describe('barmaker catalogue administration (real admin API)', () => {
         ],
       }),
     );
+    // The obsolete field is no longer part of the payload.
+    expect(vi.mocked(adminApi.createCocktail).mock.calls[0][0]).not.toHaveProperty('shortDescription');
     expect(await screen.findByText('Cocktail créé')).toBeTruthy();
   });
 

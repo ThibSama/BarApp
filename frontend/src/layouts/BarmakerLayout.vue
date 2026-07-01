@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AppIcon from '@/components/common/AppIcon.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -7,11 +7,17 @@ import { useAuthStore } from '@/stores/auth';
 const router = useRouter();
 const auth = useAuthStore();
 const menuOpen = ref(false);
-const navItems = [
-  { to: '/bar/orders', label: 'Commandes', icon: 'clipboard-list' as const },
-  { to: '/bar/categories', label: 'Catégories', icon: 'tags' as const },
-  { to: '/bar/cocktails', label: 'Cocktails', icon: 'martini' as const },
-];
+// The "Équipe" (staff management) item is present only for managers — it is
+// absent (not merely disabled) for regular barmakers, matching the backend
+// authorization that returns 403 on /api/bar/users for a barmaker.
+const navItems = computed(() => [
+  { name: 'bar-orders', label: 'Commandes', icon: 'clipboard-list' as const },
+  { name: 'bar-categories', label: 'Catégories', icon: 'tags' as const },
+  { name: 'bar-cocktails', label: 'Cocktails', icon: 'martini' as const },
+  ...(auth.isManager
+    ? [{ name: 'bar-users', label: 'Équipe', icon: 'users' as const }]
+    : []),
+]);
 
 async function logout(): Promise<void> {
   menuOpen.value = false;
@@ -23,13 +29,13 @@ async function logout(): Promise<void> {
 <template>
   <div class="barmaker-shell">
     <aside class="barmaker-sidebar" aria-label="Navigation barmaker bureau">
-      <RouterLink class="barmaker-logo" to="/bar/orders" aria-label="Le Bar’App - espace Barmaker">
+      <RouterLink class="barmaker-logo" :to="{ name: 'bar-orders' }" aria-label="Le Bar’App - espace Barmaker">
         <span class="logo-mark"><AppIcon name="martini" :size="28" /></span>
         <strong>LE BAR’APP</strong>
         <small>ESPACE BARMAKER</small>
       </RouterLink>
       <nav class="barmaker-nav" aria-label="Navigation barmaker">
-        <RouterLink v-for="item in navItems" :key="item.to" :to="item.to">
+        <RouterLink v-for="item in navItems" :key="item.name" :to="{ name: item.name }">
           <span class="nav-icon"><AppIcon :name="item.icon" :size="20" /></span>
           {{ item.label }}
         </RouterLink>
@@ -43,7 +49,7 @@ async function logout(): Promise<void> {
     <div class="barmaker-content">
       <header class="barmaker-mobile-header">
         <button type="button" aria-label="Ouvrir la navigation barmaker" @click="menuOpen = true"><AppIcon name="menu" :size="22" /></button>
-        <RouterLink to="/bar/orders">LE BAR’APP</RouterLink>
+        <RouterLink :to="{ name: 'bar-orders' }">LE BAR’APP</RouterLink>
         <button type="button" class="mobile-logout" aria-label="Déconnexion" @click="logout"><AppIcon name="power" :size="20" /></button>
       </header>
       <main class="barmaker-page-shell"><RouterView /></main>
@@ -53,11 +59,11 @@ async function logout(): Promise<void> {
       <div v-if="menuOpen" class="drawer-backdrop" @click.self="menuOpen = false">
         <nav class="barmaker-drawer" aria-label="Navigation barmaker mobile">
           <button type="button" aria-label="Fermer la navigation" @click="menuOpen = false"><AppIcon name="x" :size="22" /></button>
-          <RouterLink class="drawer-logo" to="/bar/orders" @click="menuOpen = false">
+          <RouterLink class="drawer-logo" :to="{ name: 'bar-orders' }" @click="menuOpen = false">
             <span class="logo-mark"><AppIcon name="martini" :size="24" /></span>
             <span><strong>LE BAR’APP</strong><small>ESPACE BARMAKER</small></span>
           </RouterLink>
-          <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" @click="menuOpen = false">
+          <RouterLink v-for="item in navItems" :key="item.name" :to="{ name: item.name }" @click="menuOpen = false">
             <span class="nav-icon"><AppIcon :name="item.icon" :size="20" /></span>
             {{ item.label }}
           </RouterLink>

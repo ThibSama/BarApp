@@ -14,7 +14,6 @@ public record CocktailResponse(
         String categoryName,
         String name,
         String description,
-        String shortDescription,
         String imageUrl,
         boolean active,
         List<CocktailIngredientResponse> ingredients,

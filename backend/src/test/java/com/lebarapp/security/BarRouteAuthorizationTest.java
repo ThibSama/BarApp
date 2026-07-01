@@ -4,6 +4,7 @@ import com.lebarapp.config.JwtConfig;
 import com.lebarapp.config.SecurityConfig;
 import com.lebarapp.config.SecurityProperties;
 import com.lebarapp.controller.BarTestController;
+import com.lebarapp.controller.BarUsersTestController;
 import com.lebarapp.repository.AppUserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Production authentication tests (login, JWT, disabled user) are covered by
  * {@link SecurityIT} using real signed JWTs and PostgreSQL users.</p>
  */
-@WebMvcTest(BarTestController.class)
+@WebMvcTest({BarTestController.class, BarUsersTestController.class})
 @Import({SecurityConfig.class, JwtConfig.class,
         JsonAuthenticationEntryPoint.class, JsonAccessDeniedHandler.class,
         ActiveUserJwtAuthenticationConverter.class})
@@ -69,6 +70,32 @@ class BarRouteAuthorizationTest {
     @WithMockUser(roles = "BARMAKER")
     void barmakerRoleSucceedsOnBarRoute() throws Exception {
         mockMvc.perform(get("/api/bar/test"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ok"));
+    }
+
+    @Test
+    @WithMockUser(roles = "MANAGER")
+    void managerRoleSucceedsOnBarRoute() throws Exception {
+        // A manager is an elevated barmaker: it keeps access to /api/bar/**.
+        mockMvc.perform(get("/api/bar/test"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ok"));
+    }
+
+    @Test
+    @WithMockUser(roles = "BARMAKER")
+    void barmakerIsForbiddenOnUsersRoute() throws Exception {
+        mockMvc.perform(get("/api/bar/users/test"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "MANAGER")
+    void managerIsAllowedOnUsersRoute() throws Exception {
+        mockMvc.perform(get("/api/bar/users/test"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ok"));
     }

@@ -1,12 +1,16 @@
-import temporaryCocktailIllustration from '@/assets/images/cocktail-placeholder.webp';
+import cocktailPlaceholderAsset from '@/assets/images/cocktail-placeholder.webp';
 
-const temporaryRemoteImageMarkers = ['photo-1544145945-f90425340c7e'];
+/**
+ * Bundled placeholder, used only as a fallback: cocktails without an image,
+ * empty/invalid URLs, missing local files, or a browser image-load failure.
+ * The active demo cocktails ship real local photos (see
+ * `frontend/public/images/cocktails/`) and therefore never show this.
+ */
+export const cocktailPlaceholderImage = cocktailPlaceholderAsset;
 
-export const cocktailPlaceholderImage = temporaryCocktailIllustration;
-
+/** A cocktail has its own image as soon as it exposes a non-empty URL. */
 export function hasCocktailSpecificImage(imageUrl?: string): boolean {
-  const trimmed = imageUrl?.trim();
-  return Boolean(trimmed) && !temporaryRemoteImageMarkers.some((marker) => trimmed?.includes(marker));
+  return Boolean(imageUrl?.trim());
 }
 
 export function resolveCocktailImageSrc(imageUrl?: string, failed = false): string {

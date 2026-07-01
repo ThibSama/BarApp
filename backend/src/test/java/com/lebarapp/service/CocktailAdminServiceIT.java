@@ -77,7 +77,7 @@ class CocktailAdminServiceIT extends AbstractPostgresIntegrationTest {
         assertThat(created.id()).isNotNull();
         assertThat(created.categoryId()).isEqualTo(categoryId);
         assertThat(created.categoryName()).isEqualTo("Bar A");
-        assertThat(created.shortDescription()).isEqualTo("résumé");
+        assertThat(created.description()).isEqualTo("description complète");
         assertThat(created.active()).isTrue();
         // Ingredients returned in displayOrder order.
         assertThat(created.ingredients()).extracting(CocktailIngredientResponse::name)
@@ -325,7 +325,7 @@ class CocktailAdminServiceIT extends AbstractPostgresIntegrationTest {
     private static CocktailRequest requestActive(Long categoryId, String name,
                                                  List<CocktailIngredientRequest> ingredients,
                                                  List<CocktailPriceRequest> prices, Boolean active) {
-        return new CocktailRequest(categoryId, name, "description complète", "résumé",
+        return new CocktailRequest(categoryId, name, "description complète",
                 "https://example.test/img.jpg", active, ingredients, prices);
     }
 

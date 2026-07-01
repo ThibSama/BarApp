@@ -14,9 +14,9 @@ async function mount(component: unknown, path: string) {
   const router = createRouter({
     history: createWebHistory(),
     routes: [
-      { path: '/client/menu', component: { template: '<div />' } },
-      { path: '/client/confirmation/:orderId', component: OrderConfirmationView },
-      { path: '/client/suivi/:orderId', component: OrderTrackingView },
+      { path: '/client/menu', name: 'client-menu', component: { template: '<div />' } },
+      { path: '/client/confirmation/:orderId', name: 'client-order-confirmation', component: OrderConfirmationView },
+      { path: '/client/suivi/:orderId', name: 'client-order-tracking', component: OrderTrackingView },
     ],
   });
   await router.push(path);

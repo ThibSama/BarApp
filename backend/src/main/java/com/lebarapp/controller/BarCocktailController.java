@@ -21,7 +21,8 @@ import java.util.List;
 
 /**
  * Protected barmaker cocktail-management API. Every route lives under
- * {@code /api/bar/**} and therefore requires {@code ROLE_BARMAKER}. {@code DELETE}
+ * {@code /api/bar/**} and therefore requires an authenticated staff member
+ * ({@code ROLE_BARMAKER} or {@code ROLE_MANAGER}). {@code DELETE}
  * performs a logical deactivation, preserving order-item snapshots. Entities are
  * never exposed; only DTOs cross this boundary.
  */

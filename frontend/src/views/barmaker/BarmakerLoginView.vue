@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import AppIcon from '@/components/common/AppIcon.vue';
 import { useAuthStore } from '@/stores/auth';
 
@@ -11,12 +11,17 @@ const auth = useAuthStore();
 const username = ref('');
 const password = ref('');
 
-/** Only accept internal, non protocol-relative redirect targets. */
-function safeRedirect(): string {
+/**
+ * Only accept internal, non protocol-relative redirect targets. Hostname-aware:
+ * the login path itself differs per hostname (`/login` vs `/bar/login`), so we
+ * resolve it for the active mode and fall back to the named orders route.
+ */
+function safeRedirect(): RouteLocationRaw {
   const raw = route.query.redirect;
   const target = typeof raw === 'string' ? raw : '';
-  if (target.startsWith('/') && !target.startsWith('//') && target !== '/bar/login') return target;
-  return '/bar/orders';
+  const loginPath = router.resolve({ name: 'bar-login' }).path;
+  if (target.startsWith('/') && !target.startsWith('//') && target !== loginPath) return target;
+  return { name: 'bar-orders' };
 }
 
 async function onSubmit(): Promise<void> {

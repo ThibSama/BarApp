@@ -105,7 +105,6 @@ export function cocktailResponse(overrides: Partial<CocktailResponse> = {}): Coc
     categoryName: 'Classiques',
     name: 'Mojito',
     description: 'Un grand classique cubain.',
-    shortDescription: 'Menthe, citron vert, rhum.',
     imageUrl: null,
     active: true,
     ingredients: [
@@ -129,7 +128,6 @@ export function cocktailResponses(): CocktailResponse[] {
       categoryId: 2,
       categoryName: 'Fruités',
       name: 'Piña Colada',
-      shortDescription: 'Ananas, coco, rhum.',
       active: false,
     }),
   ];

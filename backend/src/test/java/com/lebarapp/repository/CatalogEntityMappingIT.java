@@ -66,7 +66,7 @@ class CatalogEntityMappingIT extends AbstractPostgresIntegrationTest {
         Cocktail cocktail = cocktailRepository.findWithPricesById(1L).orElseThrow();
         assertThat(cocktail.getName()).isEqualTo("Mojito");
         assertThat(cocktail.getDescription()).isNotBlank();
-        assertThat(cocktail.getImageUrl()).isNull();
+        assertThat(cocktail.getImageUrl()).isEqualTo("/images/cocktails/mojito.webp");
         assertThat(cocktail.isActive()).isTrue();
         assertThat(cocktail.getCreatedAt()).isNotNull();
         assertThat(cocktail.getUpdatedAt()).isNotNull();
